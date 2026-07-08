@@ -5,23 +5,39 @@
 #include <thread>
 #include <vector>
 #include <chrono>
+#include <signal.h>
 using namespace std;
 
 const int port = 30000;
 const int MAX_CONNECTIONS = 5;
-const int USER_MESSAGE_CHECK_DELAY_MS = 500;
+const int USER_MESSAGE_CHECK_DELAY_MS = 250;
+const int CLIENT_WAIT_TIME_S = 60;
+
+bool server_active = true;
+
+void handle_sigint_cleanup(int sig) {
+    printf("ctrl-c!\n");
+    server_active = false;
+}
 
 int handle_user(SOCKET userSocket, int sessionID) { // 0 if ok, -1 if err
     printf("user with sessionID %d connected!\n", sessionID);
 
     char receiveBuffer[200] = "";
     int byteCount = 0;
-    while (userSocket != SOCKET_ERROR && byteCount != SOCKET_ERROR) {
+    auto time_since_last_msg = chrono::steady_clock::now();
+    while (userSocket != SOCKET_ERROR && byteCount != SOCKET_ERROR && server_active) {
         int byteCount = recv(userSocket, receiveBuffer, 200, 0);
 
         if (byteCount != SOCKET_ERROR && byteCount != 0) {
             printf("received %ld bytes of data:\n", byteCount);
             cout << receiveBuffer << endl;
+            time_since_last_msg = chrono::steady_clock::now();
+        }
+
+        if (chrono::duration_cast<chrono::seconds>(chrono::steady_clock::now() - time_since_last_msg)
+             > chrono::seconds(CLIENT_WAIT_TIME_S)) {
+            break;
         }
 
         this_thread::sleep_for(chrono::milliseconds(USER_MESSAGE_CHECK_DELAY_MS));
@@ -73,22 +89,24 @@ int main() {
         cout << "listen succeded, listening with big rabbit ears" << endl;
     }
 
+    signal(SIGINT, handle_sigint_cleanup);
+
     vector<thread> threads;
     SOCKET acceptSocket;
-    while (acceptSocket != INVALID_SOCKET) {
+    while (acceptSocket != INVALID_SOCKET && server_active) {
         acceptSocket = accept(serverSocket, NULL, NULL);
 
         if (acceptSocket == INVALID_SOCKET) break;
 
         threads.push_back(thread(handle_user, acceptSocket, threads.size()));
     }
-    if (acceptSocket == INVALID_SOCKET) {
+    
+    if (acceptSocket == INVALID_SOCKET && server_active) {
         cout << "accept failed: " << WSAGetLastError() << endl;
-        for (int i = 0; i < threads.size(); i++) {
-            threads[i].join();
-        }
-        WSACleanup();
-        return -1;
+    }
+
+    for (int i = 0; i < threads.size(); i++) {
+        threads[i].join();
     }
 
     printf("closing socket & server\n");
