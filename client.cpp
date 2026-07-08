@@ -8,6 +8,14 @@ using namespace std;
 char IP[] = "127.0.0.1"; // defaults
 int port = 30000;
 
+void get_ip_port() {
+    printf("enter ip:\n");
+    cin >> IP;
+    printf("enter port:\n");
+    cin >> port;
+    cin.ignore(256, '\n');
+}
+
 int send_message(SOCKET socket, Message msg) { // 0 if ok, -1 if err
     int byteCount = send(socket, (char*)&msg, sizeof(msg), 0);
     if (byteCount == SOCKET_ERROR) {
@@ -20,6 +28,8 @@ int send_message(SOCKET socket, Message msg) { // 0 if ok, -1 if err
 }
 
 int main() {
+    get_ip_port();
+
     WSADATA wsaData;
     int wsaerr;
     WORD wVersion = MAKEWORD(2, 2);

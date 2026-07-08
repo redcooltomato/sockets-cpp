@@ -18,6 +18,13 @@ int port = 30000;
 
 bool server_active = true;
 
+void get_ip_port() {
+    printf("enter ip:\n");
+    cin >> IP;
+    printf("enter port:\n");
+    cin >> port;
+}
+
 void handle_sigint_cleanup(int sig) {
     printf("ctrl-c!\n");
     server_active = false;
@@ -35,7 +42,7 @@ int handle_user(SOCKET userSocket, int sessionID) { // 0 if ok, -1 if err
         if (byteCount != SOCKET_ERROR && byteCount != 0) {
             printf("received %ld bytes of data:\n", byteCount);
             cout << received_msg.type << " " << received_msg.content << endl;
-
+            
             time_since_last_msg = chrono::steady_clock::now();
         }
 
@@ -53,6 +60,8 @@ int handle_user(SOCKET userSocket, int sessionID) { // 0 if ok, -1 if err
 }
 
 int main() {
+    get_ip_port();
+
     WSADATA wsaData;
     int wsaerr;
     WORD wVersion = MAKEWORD(2, 2);
