@@ -2,9 +2,22 @@
 #include <windows.h>
 #include <ws2tcpip.h>
 #include <iostream>
+#include "types.h"
 using namespace std;
 
-const int port = 30000;
+char IP[] = "127.0.0.1"; // defaults
+int port = 30000;
+
+int send_message(SOCKET socket, Message msg) { // 0 if ok, -1 if err
+    int byteCount = send(socket, (char*)&msg, sizeof(msg), 0);
+    if (byteCount == SOCKET_ERROR) {
+        cout << "send error: " << WSAGetLastError() << endl;
+        return -1;
+    }
+
+    printf("sent!\n");
+    return 0;
+}
 
 int main() {
     WSADATA wsaData;
@@ -30,7 +43,7 @@ int main() {
 
     sockaddr_in clientService;
     clientService.sin_family = AF_INET;
-    InetPtonA(AF_INET, "127.0.0.1", &clientService.sin_addr.s_addr);
+    InetPtonA(AF_INET, IP, &clientService.sin_addr.s_addr);
     clientService.sin_port = htons(port);
     if (connect(clientSocket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
         cout << "client connect failed: " << endl;
@@ -40,16 +53,11 @@ int main() {
         cout << "client connect ok" << endl;
     }
     
-    char sendBuffer[200];
-    printf("enter your message (200 characters limit)\n");
-    cin.getline(sendBuffer, 200);
-    int byteCount = send(clientSocket, sendBuffer, 200, 0);
-    if (byteCount == SOCKET_ERROR) {
-        cout << "send error: " << WSAGetLastError() << endl;
-        return 0;
-    } else {
-        printf("sent server %ld bytes\n", byteCount);
-    }
+    char msg[MAX_MESSAGE_LENGTH];
+    printf("type your message, upto %d characters\n", MAX_MESSAGE_LENGTH);
+    cin.getline(msg, MAX_MESSAGE_LENGTH);
+
+    send_message(clientSocket, Message(msgTypes::User, msg));
 
     printf("closing socket & client\n");
     closesocket(clientSocket);
