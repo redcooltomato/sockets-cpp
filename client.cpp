@@ -26,14 +26,14 @@ int send_message(SOCKET socket, Message msg) { // 0 if ok, -1 if err
 }
 
 int main() {
-    get_ip_port();
+    /* get_ip_port(); */
 
     WSADATA wsaData;
     int wsaerr;
     WORD wVersion = MAKEWORD(2, 2);
     wsaerr = WSAStartup(wVersion, &wsaData);
     if (wsaerr) {
-        cout << "win sock dll not found" << endl;
+        cout << ANSI_COLORS_RED << "win sock dll not found" << ANSI_COLORS_DEFAULT << endl;
         return 0;
     } else {
         cout << "win sock dll found" << endl;
@@ -42,7 +42,7 @@ int main() {
     SOCKET clientSocket = INVALID_SOCKET;
     clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (clientSocket == INVALID_SOCKET) {
-        cout << "error at socket: " << WSAGetLastError() << endl;
+        cout << ANSI_COLORS_RED << "error at socket: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
         WSACleanup();
         return 0;
     } else {
@@ -54,11 +54,11 @@ int main() {
     InetPtonA(AF_INET, IP, &clientService.sin_addr.s_addr);
     clientService.sin_port = htons(port);
     if (connect(clientSocket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
-        cout << "client connect failed: " << endl;
+        cout << ANSI_COLORS_RED << "client connect failed: " << ANSI_COLORS_DEFAULT << endl;
         WSACleanup();
         return 0;
     } else {
-        cout << "client connect ok" << endl;
+        printf("== connected ==\n");
     }
 
     /* send_message(clientSocket, Message(msgTypes::System, CLIENT_CONNECT)); */
@@ -70,7 +70,7 @@ int main() {
         cin.getline(msg, MAX_MESSAGE_LENGTH);
 
         if (send_message(clientSocket, Message(msgType::User, msg)) == -1) {
-            cout << "error occured while sending message: " << WSAGetLastError() << endl;
+            cout << ANSI_COLORS_RED << "error occured while sending message: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
             WSACleanup();
             return 0;
         } else {
