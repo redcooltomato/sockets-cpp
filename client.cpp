@@ -7,7 +7,7 @@ int port = 30000;
 
 
 
-expected<Unit, string> send_message(SOCKET socket, Message msg) {
+auto send_message(SOCKET socket, Message msg) -> expected<Unit, string> {
     int byteCount = send(socket, (char*)&msg, sizeof(msg), 0);
     if (byteCount == SOCKET_ERROR) {
         string err = to_string(WSAGetLastError());
@@ -75,7 +75,7 @@ int main() {
 
 
 
-void get_ip_port() {
+auto get_ip_port() -> void {
     printf("enter ip:\n");
     cin >> IP;
     printf("enter port:\n");
@@ -83,7 +83,7 @@ void get_ip_port() {
     cin.ignore(256, '\n');
 }
 
-expected<Unit, string> connect_to_server(SOCKET clientSocket) {
+auto connect_to_server(SOCKET clientSocket) -> expected<Unit, string> {
     sockaddr_in clientService;
     clientService.sin_family = AF_INET;
     InetPtonA(AF_INET, IP, &clientService.sin_addr.s_addr);

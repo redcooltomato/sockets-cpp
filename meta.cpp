@@ -43,7 +43,7 @@ struct Message {
     }
 };
 
-std::expected<SOCKET, std::string> init_wsa_and_get_socket() {
+auto init_wsa_and_get_socket() -> std::expected<SOCKET, std::string> {
     WSADATA wsaData;
     int wsaerr;
     WORD wVersion = MAKEWORD(2, 2);

@@ -14,10 +14,10 @@
 
 #include "meta.cpp"
 
-void get_ip_port();
+auto get_ip_port() -> void;
 
-std::expected<Unit, std::string> bind_and_listen(SOCKET serverSocket);
+auto bind_and_listen(SOCKET serverSocket) -> std::expected<Unit, std::string>;
 
-void handle_sigint_cleanup(int sig);
+auto handle_sigint_cleanup(int sig) -> void;
 
-void handle_client(SOCKET clientSocket, int sessionID);
+auto handle_client(SOCKET clientSocket, int sessionID) -> void;

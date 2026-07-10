@@ -12,6 +12,6 @@
 
 void get_ip_port();
 
-std::expected<Unit, std::string> send_message(SOCKET socket, Message msg);
+auto send_message(SOCKET socket, Message msg) -> std::expected<Unit, std::string>;
 
-std::expected<Unit, std::string> connect_to_server(SOCKET clientSocket);
+auto connect_to_server(SOCKET clientSocket) -> std::expected<Unit, std::string>;

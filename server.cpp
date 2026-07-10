@@ -15,7 +15,7 @@ bool server_active = true;
 
 
 
-void handle_client(SOCKET clientSocket, int sessionID) {
+auto handle_client(SOCKET clientSocket, int sessionID) -> void {
     printf("%sclient with sessionID %d connected!%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
 
     Message received_msg;
@@ -100,19 +100,19 @@ int main() {
 
 // stuff i dont want to look at
 
-void get_ip_port() {
+auto get_ip_port() -> void {
     printf("enter ip:\n");
     cin >> IP;
     printf("enter port:\n");
     cin >> port;
 }
 
-void handle_sigint_cleanup(int sig) {
+auto handle_sigint_cleanup(int sig) -> void {
     printf("%sctrl-c :(%s\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
     server_active = false;
 }
 
-expected<Unit, string> bind_and_listen(SOCKET serverSocket) {
+auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, string> {
     sockaddr_in service;
     service.sin_family = AF_INET;
     InetPtonA(AF_INET, IP, &service.sin_addr.s_addr);
