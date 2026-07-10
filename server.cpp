@@ -1,5 +1,9 @@
 #include "server.h"
 
+using namespace std;
+
+
+
 const int CONNECTION_QUEUE_SIZE = 5;
 const int CLIENT_MESSAGE_CHECK_DELAY_MS = 250;
 const int CLIENT_WAIT_TIME_S = 60;
@@ -45,15 +49,25 @@ void handle_client(SOCKET clientSocket, int sessionID) {
 }
 
 int main() {
-    get_ip_port();
+    /* get_ip_port(); */
 
     SOCKET serverSocket;
-    auto res = init_and_get_socket();
-    if (res) {
-       serverSocket = res.value();
-    } else {
-        cout << res.error();
-        return -1;
+    {
+        expected<SOCKET, string> res = init_wsa_and_get_socket();
+        if (res) {
+            serverSocket = res.value();
+        } else {
+            cout << res.error();
+            return -1;
+        }
+    }
+
+    {
+        expected<Unit, string> res = bind_and_listen(serverSocket);
+        if (!res) {
+            cout << res.error();
+            return -1;
+        }
     }
 
     signal(SIGINT, handle_sigint_cleanup);
@@ -98,27 +112,7 @@ void handle_sigint_cleanup(int sig) {
     server_active = false;
 }
 
-expected<SOCKET, string> init_and_get_socket() {
-    WSADATA wsaData;
-    int wsaerr;
-    WORD wVersion = MAKEWORD(2, 2);
-    wsaerr = WSAStartup(wVersion, &wsaData);
-    if (wsaerr) {
-        return unexpected(string(ANSI_COLORS_RED) + "win sock dll not found\n" + ANSI_COLORS_DEFAULT);
-    } else {
-        cout << "win sock dll found" << endl;
-    }
-
-    SOCKET serverSocket = INVALID_SOCKET;
-    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverSocket == INVALID_SOCKET) {
-        string err = to_string(WSAGetLastError());
-        WSACleanup();
-        return unexpected(string(ANSI_COLORS_RED) + "error at socket: " + err + ANSI_COLORS_DEFAULT + "\n" );
-    } else {
-        cout << "socket is ok!" << endl;
-    }
-
+expected<Unit, string> bind_and_listen(SOCKET serverSocket) {
     sockaddr_in service;
     service.sin_family = AF_INET;
     InetPtonA(AF_INET, IP, &service.sin_addr.s_addr);
@@ -140,5 +134,5 @@ expected<SOCKET, string> init_and_get_socket() {
         printf("%s== listening with big rabbit ears ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     }
 
-    return serverSocket;
+    return Unit();
 }
