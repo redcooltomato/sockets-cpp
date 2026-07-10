@@ -65,7 +65,7 @@ int handle_client(SOCKET clientSocket, int sessionID) { // 0 if ok, -1 if err
 }
 
 int main() {
-    /* get_ip_port(); */
+    get_ip_port();
 
     WSADATA wsaData;
     int wsaerr;

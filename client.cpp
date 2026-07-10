@@ -26,7 +26,7 @@ int send_message(SOCKET socket, Message msg) { // 0 if ok, -1 if err
 }
 
 int main() {
-    /* get_ip_port(); */
+    get_ip_port();
 
     WSADATA wsaData;
     int wsaerr;
@@ -62,19 +62,23 @@ int main() {
     }
 
     /* send_message(clientSocket, Message(msgTypes::System, CLIENT_CONNECT)); */
+
+    printf("type your message, up to %d characters\nuse :disconnect to disconnect", MAX_MESSAGE_LENGTH);
     
     char msg[MAX_MESSAGE_LENGTH];
 
-    for (int i = 0; i < 3; i++) {
-        printf("type your message, upto %d characters\n%s>%s ", MAX_MESSAGE_LENGTH, ANSI_COLORS_BLUE, ANSI_COLORS_DEFAULT);
+    while (true) {
+        printf("%s>%s ", ANSI_COLORS_BLUE, ANSI_COLORS_DEFAULT);
         cin.getline(msg, MAX_MESSAGE_LENGTH);
+
+        if (strcmp(msg, ":disconnect") == 0) {
+            break;
+        }
 
         if (send_message(clientSocket, Message(msgType::User, msg)) == -1) {
             cout << ANSI_COLORS_RED << "error occured while sending message: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
             WSACleanup();
-            return 0;
-        } else {
-            printf("sent!\n");
+            break;
         }
     }
 
