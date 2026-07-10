@@ -10,7 +10,7 @@
 using namespace std;
 
 const int CONNECTION_QUEUE_SIZE = 5;
-const int USER_MESSAGE_CHECK_DELAY_MS = 250;
+const int client_MESSAGE_CHECK_DELAY_MS = 250;
 const int CLIENT_WAIT_TIME_S = 60;
 
 char IP[20] = "127.0.0.1"; // defaults
@@ -26,28 +26,27 @@ void get_ip_port() {
 }
 
 void handle_sigint_cleanup(int sig) {
-    printf("ctrl-c :(\n");
+    printf("%sctrl-c :(%s\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
     server_active = false;
 }
 
-int handle_user(SOCKET userSocket, int sessionID) { // 0 if ok, -1 if err
-    printf("%suser with sessionID %d connected!%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
+int handle_client(SOCKET clientSocket, int sessionID) { // 0 if ok, -1 if err
+    printf("%sclient with sessionID %d connected!%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
 
     Message received_msg;
     int byteCount = 0;
     auto time_since_last_msg = chrono::steady_clock::now();
-    while (userSocket != SOCKET_ERROR && byteCount != SOCKET_ERROR && server_active) {
-        int byteCount = recv(userSocket, (char*)&received_msg, sizeof(Message), 0);
+    while (clientSocket != SOCKET_ERROR && byteCount != SOCKET_ERROR && server_active) {
+        int byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
         if (byteCount > 0) {
             if (received_msg.type == msgType::System && strcmp(received_msg.content, CLIENT_DISCONNECT) == 0) {
                 break;
             }
 
-            printf("%ssession %d: %s%s\n", 
-                (received_msg.type == msgType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), 
-                sessionID, received_msg.content, 
-                ANSI_COLORS_DEFAULT);
+            printf("%sclient %d: %s%s\n", 
+                (received_msg.type == msgType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), sessionID,
+                ANSI_COLORS_DEFAULT, received_msg.content);
             
             time_since_last_msg = chrono::steady_clock::now();
         }
@@ -57,10 +56,10 @@ int handle_user(SOCKET userSocket, int sessionID) { // 0 if ok, -1 if err
             break;
         }
 
-        this_thread::sleep_for(chrono::milliseconds(USER_MESSAGE_CHECK_DELAY_MS));
+        this_thread::sleep_for(chrono::milliseconds(client_MESSAGE_CHECK_DELAY_MS));
     }
 
-    printf("%suser with sessionID %d disconnected%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
+    printf("%sclient with sessionID %d disconnected%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
 
     return 0;
 }
@@ -105,7 +104,7 @@ int main() {
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
         cout << ANSI_COLORS_RED << "listen failed: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
     } else {
-        cout << "== listening with big rabbit ears ==" << endl;
+        printf("%s== listening with big rabbit ears ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     }
 
     signal(SIGINT, handle_sigint_cleanup);
@@ -117,7 +116,7 @@ int main() {
 
         if (acceptSocket == INVALID_SOCKET) break;
 
-        threads.push_back(thread(handle_user, acceptSocket, threads.size()));
+        threads.push_back(thread(handle_client, acceptSocket, threads.size()));
     }
     
     if (acceptSocket == INVALID_SOCKET && server_active) {
@@ -128,7 +127,7 @@ int main() {
         threads[i].join();
     }
 
-    printf("closing socket & server\n");
+    printf("%sclosing socket & server%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     closesocket(serverSocket);
     WSACleanup();
 }

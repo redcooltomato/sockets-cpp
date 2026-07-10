@@ -54,11 +54,11 @@ int main() {
     InetPtonA(AF_INET, IP, &clientService.sin_addr.s_addr);
     clientService.sin_port = htons(port);
     if (connect(clientSocket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
-        cout << ANSI_COLORS_RED << "client connect failed: " << ANSI_COLORS_DEFAULT << endl;
+        cout << ANSI_COLORS_RED << "client connect failed: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
         WSACleanup();
         return 0;
     } else {
-        printf("== connected ==\n");
+        printf("%s== connected ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     }
 
     /* send_message(clientSocket, Message(msgTypes::System, CLIENT_CONNECT)); */
@@ -66,7 +66,7 @@ int main() {
     char msg[MAX_MESSAGE_LENGTH];
 
     for (int i = 0; i < 3; i++) {
-        printf("type your message, upto %d characters\n> ", MAX_MESSAGE_LENGTH);
+        printf("type your message, upto %d characters\n%s>%s ", MAX_MESSAGE_LENGTH, ANSI_COLORS_BLUE, ANSI_COLORS_DEFAULT);
         cin.getline(msg, MAX_MESSAGE_LENGTH);
 
         if (send_message(clientSocket, Message(msgType::User, msg)) == -1) {
@@ -80,7 +80,7 @@ int main() {
 
     send_message(clientSocket, Message(msgType::System, CLIENT_DISCONNECT));
     
-    printf("closing socket & client\n");
+    printf("%sclosing socket & server%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     closesocket(clientSocket);
     WSACleanup();
 }
