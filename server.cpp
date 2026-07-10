@@ -1,16 +1,7 @@
-#include <winsock2.h>
-#include <windows.h>
-#include <ws2tcpip.h>
-#include <iostream>
-#include <thread>
-#include <vector>
-#include <chrono>
-#include <signal.h>
-#include "types.h"
-using namespace std;
+#include "server.h"
 
 const int CONNECTION_QUEUE_SIZE = 5;
-const int client_MESSAGE_CHECK_DELAY_MS = 250;
+const int CLIENT_MESSAGE_CHECK_DELAY_MS = 250;
 const int CLIENT_WAIT_TIME_S = 60;
 
 char IP[20] = "127.0.0.1"; // defaults
@@ -18,24 +9,15 @@ int port = 30000;
 
 bool server_active = true;
 
-void get_ip_port() {
-    printf("enter ip:\n");
-    cin >> IP;
-    printf("enter port:\n");
-    cin >> port;
-}
 
-void handle_sigint_cleanup(int sig) {
-    printf("%sctrl-c :(%s\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
-    server_active = false;
-}
 
-int handle_client(SOCKET clientSocket, int sessionID) { // 0 if ok, -1 if err
+void handle_client(SOCKET clientSocket, int sessionID) {
     printf("%sclient with sessionID %d connected!%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
 
     Message received_msg;
     int byteCount = 0;
     auto time_since_last_msg = chrono::steady_clock::now();
+    
     while (clientSocket != SOCKET_ERROR && byteCount != SOCKET_ERROR && server_active) {
         int byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
@@ -56,61 +38,29 @@ int handle_client(SOCKET clientSocket, int sessionID) { // 0 if ok, -1 if err
             break;
         }
 
-        this_thread::sleep_for(chrono::milliseconds(client_MESSAGE_CHECK_DELAY_MS));
+        this_thread::sleep_for(chrono::milliseconds(CLIENT_MESSAGE_CHECK_DELAY_MS));
     }
 
     printf("%sclient with sessionID %d disconnected%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
-
-    return 0;
 }
 
 int main() {
     get_ip_port();
 
-    WSADATA wsaData;
-    int wsaerr;
-    WORD wVersion = MAKEWORD(2, 2);
-    wsaerr = WSAStartup(wVersion, &wsaData);
-    if (wsaerr) {
-        cout << ANSI_COLORS_RED << "win sock dll not found" << ANSI_COLORS_DEFAULT << endl;
+    SOCKET serverSocket;
+    auto res = init_and_get_socket();
+    if (res) {
+       serverSocket = res.value();
+    } else {
+        cout << res.error();
         return -1;
-    } else {
-        cout << "win sock dll found" << endl;
-    }
-
-    SOCKET serverSocket = INVALID_SOCKET;
-    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverSocket == INVALID_SOCKET) {
-        cout << ANSI_COLORS_RED << "error at socket: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
-        WSACleanup();
-        return -1;
-    } else {
-        cout << "socket is ok!" << endl;
-    }
-
-    sockaddr_in service;
-    service.sin_family = AF_INET;
-    InetPtonA(AF_INET, IP, &service.sin_addr.s_addr);
-    service.sin_port = htons(port);
-    if (bind(serverSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR) {
-        cout << ANSI_COLORS_RED << "bind failed: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
-        closesocket(serverSocket);
-        WSACleanup();
-        return -1;
-    } else {
-        cout << "bind is ok!" << endl;
-    }
-
-    if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
-        cout << ANSI_COLORS_RED << "listen failed: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
-    } else {
-        printf("%s== listening with big rabbit ears ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     }
 
     signal(SIGINT, handle_sigint_cleanup);
 
     vector<thread> threads;
     SOCKET acceptSocket;
+
     while (acceptSocket != INVALID_SOCKET && server_active) {
         acceptSocket = accept(serverSocket, NULL, NULL);
 
@@ -130,4 +80,65 @@ int main() {
     printf("%sclosing socket & server%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     closesocket(serverSocket);
     WSACleanup();
+}
+
+
+
+// stuff i dont want to look at
+
+void get_ip_port() {
+    printf("enter ip:\n");
+    cin >> IP;
+    printf("enter port:\n");
+    cin >> port;
+}
+
+void handle_sigint_cleanup(int sig) {
+    printf("%sctrl-c :(%s\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
+    server_active = false;
+}
+
+expected<SOCKET, string> init_and_get_socket() {
+    WSADATA wsaData;
+    int wsaerr;
+    WORD wVersion = MAKEWORD(2, 2);
+    wsaerr = WSAStartup(wVersion, &wsaData);
+    if (wsaerr) {
+        return unexpected(string(ANSI_COLORS_RED) + "win sock dll not found\n" + ANSI_COLORS_DEFAULT);
+    } else {
+        cout << "win sock dll found" << endl;
+    }
+
+    SOCKET serverSocket = INVALID_SOCKET;
+    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverSocket == INVALID_SOCKET) {
+        string err = to_string(WSAGetLastError());
+        WSACleanup();
+        return unexpected(string(ANSI_COLORS_RED) + "error at socket: " + err + ANSI_COLORS_DEFAULT + "\n" );
+    } else {
+        cout << "socket is ok!" << endl;
+    }
+
+    sockaddr_in service;
+    service.sin_family = AF_INET;
+    InetPtonA(AF_INET, IP, &service.sin_addr.s_addr);
+    service.sin_port = htons(port);
+    if (bind(serverSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR) {
+        string err = to_string(WSAGetLastError());
+        closesocket(serverSocket);
+        WSACleanup();
+        return unexpected(string(ANSI_COLORS_RED) + "bind failed: " + err + ANSI_COLORS_DEFAULT + "\n");
+    } else {
+        cout << "bind is ok!" << endl;
+    }
+
+    if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
+        string err = to_string(WSAGetLastError());
+        WSACleanup();
+        return unexpected(string(ANSI_COLORS_RED) + "listen failed: " + err + ANSI_COLORS_DEFAULT + '\n');
+    } else {
+        printf("%s== listening with big rabbit ears ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    }
+
+    return serverSocket;
 }

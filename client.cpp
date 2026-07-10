@@ -2,7 +2,7 @@
 #include <windows.h>
 #include <ws2tcpip.h>
 #include <iostream>
-#include "types.h"
+#include "meta.h"
 using namespace std;
 
 char IP[] = "127.0.0.1"; // defaults
@@ -63,7 +63,7 @@ int main() {
 
     /* send_message(clientSocket, Message(msgTypes::System, CLIENT_CONNECT)); */
 
-    printf("type your message, up to %d characters\nuse :disconnect to disconnect", MAX_MESSAGE_LENGTH);
+    printf("type your message, up to %d characters\nuse :disconnect to disconnect\n", MAX_MESSAGE_LENGTH);
     
     char msg[MAX_MESSAGE_LENGTH];
 
