@@ -37,9 +37,13 @@ int handle_user(SOCKET userSocket, int sessionID) { // 0 if ok, -1 if err
     int byteCount = 0;
     auto time_since_last_msg = chrono::steady_clock::now();
     while (userSocket != SOCKET_ERROR && byteCount != SOCKET_ERROR && server_active) {
-        int byteCount = recv(userSocket, (char*)&received_msg, 200, 0);
+        int byteCount = recv(userSocket, (char*)&received_msg, sizeof(Message), 0);
 
-        if (byteCount != SOCKET_ERROR && byteCount != 0) {
+        if (byteCount > 0) {
+            if (received_msg.type == msgType::System && strcmp(received_msg.content, CLIENT_DISCONNECT) == 0) {
+                break;
+            }
+
             printf("received %ld bytes of data:\n", byteCount);
             cout << received_msg.type << " " << received_msg.content << endl;
             
@@ -99,7 +103,7 @@ int main() {
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
         cout << "listen failed: " << WSAGetLastError() << endl;
     } else {
-        cout << "listen succeded, listening with big rabbit ears" << endl;
+        cout << "== listen succeded, listening with big rabbit ears ==" << endl;
     }
 
     signal(SIGINT, handle_sigint_cleanup);

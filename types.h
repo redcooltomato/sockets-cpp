@@ -2,14 +2,17 @@
 
 const int MAX_MESSAGE_LENGTH = 300;
 
-enum msgTypes {
+const char CLIENT_CONNECT[] = "connected!!!";
+const char CLIENT_DISCONNECT[] = "disconnected!!!";
+
+enum msgType {
     System,
     User
 };
 
 struct Message {
-    msgTypes type;
+    msgType type;
     char content[MAX_MESSAGE_LENGTH];
     Message() {}
-    Message(msgTypes t, const char* c) : type(t) { strncpy(content, c, MAX_MESSAGE_LENGTH - 1); content[MAX_MESSAGE_LENGTH - 1] = '\0'; }
+    Message(msgType t, const char* c) : type(t) { strncpy(content, c, MAX_MESSAGE_LENGTH - 1); content[MAX_MESSAGE_LENGTH - 1] = '\0'; }
 };

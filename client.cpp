@@ -22,8 +22,6 @@ int send_message(SOCKET socket, Message msg) { // 0 if ok, -1 if err
         cout << "send error: " << WSAGetLastError() << endl;
         return -1;
     }
-
-    printf("sent!\n");
     return 0;
 }
 
@@ -62,13 +60,26 @@ int main() {
     } else {
         cout << "client connect ok" << endl;
     }
+
+    /* send_message(clientSocket, Message(msgTypes::System, CLIENT_CONNECT)); */
     
     char msg[MAX_MESSAGE_LENGTH];
-    printf("type your message, upto %d characters\n", MAX_MESSAGE_LENGTH);
-    cin.getline(msg, MAX_MESSAGE_LENGTH);
 
-    send_message(clientSocket, Message(msgTypes::User, msg));
+    for (int i = 0; i < 3; i++) {
+        printf("type your message, upto %d characters\n> ", MAX_MESSAGE_LENGTH);
+        cin.getline(msg, MAX_MESSAGE_LENGTH);
 
+        if (send_message(clientSocket, Message(msgType::User, msg)) == -1) {
+            cout << "error occured while sending message: " << WSAGetLastError() << endl;
+            WSACleanup();
+            return 0;
+        } else {
+            printf("sent!\n");
+        }
+    }
+
+    send_message(clientSocket, Message(msgType::System, CLIENT_DISCONNECT));
+    
     printf("closing socket & client\n");
     closesocket(clientSocket);
     WSACleanup();
