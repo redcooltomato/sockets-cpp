@@ -3,7 +3,6 @@
 using namespace std;
 
 
-
 const int CONNECTION_QUEUE_SIZE = 5;
 const int CLIENT_MESSAGE_CHECK_DELAY_MS = 250;
 const int CLIENT_WAIT_TIME_S = 60;
@@ -13,16 +12,20 @@ int port = 30000;
 
 bool server_active = true;
 
+vector<clientConnection> clients;
 
 
-auto handle_client(SOCKET clientSocket, int sessionID) -> void {
-    printf("%sclient with sessionID %d connected!%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
+auto handle_client(SOCKET clientSocket, int clientID) -> void {
+    printf("%sclient with clientID %d connected!%s\n", ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 
     Message received_msg;
     int byteCount = 0;
     auto time_since_last_msg = chrono::steady_clock::now();
+
+    u_long why_do_i_have_to_pass_reference = 1;
+    ioctlsocket(clientSocket, FIONBIO, &why_do_i_have_to_pass_reference);
     
-    while (clientSocket != SOCKET_ERROR && byteCount != SOCKET_ERROR && server_active) {
+    while (clientSocket != SOCKET_ERROR && server_active) {
         int byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
         if (byteCount > 0) {
@@ -31,8 +34,16 @@ auto handle_client(SOCKET clientSocket, int sessionID) -> void {
             }
 
             printf("%sclient %d: %s%s\n", 
-                (received_msg.type == msgType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), sessionID,
+                (received_msg.type == msgType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), clientID,
                 ANSI_COLORS_DEFAULT, received_msg.content);
+
+            if (received_msg.type == msgType::User) {
+                received_msg.author = clientID;
+                for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
+                    if (client_ptr->clientID == clientID) continue;
+                    auto res = send_message(client_ptr->socket, received_msg);
+                }
+            }
             
             time_since_last_msg = chrono::steady_clock::now();
         }
@@ -45,7 +56,7 @@ auto handle_client(SOCKET clientSocket, int sessionID) -> void {
         this_thread::sleep_for(chrono::milliseconds(CLIENT_MESSAGE_CHECK_DELAY_MS));
     }
 
-    printf("%sclient with sessionID %d disconnected%s\n", ANSI_COLORS_CYAN, sessionID, ANSI_COLORS_DEFAULT);
+    printf("%sclient with clientID %d disconnected%s\n", ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 }
 
 int main() {
@@ -72,7 +83,6 @@ int main() {
 
     signal(SIGINT, handle_sigint_cleanup);
 
-    vector<thread> threads;
     SOCKET acceptSocket;
 
     while (acceptSocket != INVALID_SOCKET && server_active) {
@@ -80,15 +90,15 @@ int main() {
 
         if (acceptSocket == INVALID_SOCKET) break;
 
-        threads.push_back(thread(handle_client, acceptSocket, threads.size()));
+        clients.push_back(clientConnection(acceptSocket, clients.size(), thread(handle_client, acceptSocket, clients.size())));
     }
     
     if (acceptSocket == INVALID_SOCKET && server_active) {
         cout << ANSI_COLORS_RED << "accept failed: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
     }
 
-    for (int i = 0; i < threads.size(); i++) {
-        threads[i].join();
+    for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
+        client_ptr->thr.join();
     }
 
     printf("%sclosing socket & server%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);

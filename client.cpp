@@ -2,20 +2,34 @@
 
 using namespace std;
 
+
 char IP[] = "127.0.0.1"; // defaults
 int port = 30000;
 
+const int MESSAGE_CHECK_DELAY_MS = 250;
+
+bool client_active = true;
 
 
-auto send_message(SOCKET socket, Message msg) -> expected<Unit, string> {
-    int byteCount = send(socket, (char*)&msg, sizeof(msg), 0);
-    if (byteCount == SOCKET_ERROR) {
-        string err = to_string(WSAGetLastError());
-        WSACleanup();
-        return unexpected(string(ANSI_COLORS_RED) + "error occued when sending: " + err + "\n" + ANSI_COLORS_DEFAULT);
+auto handle_server(SOCKET clientSocket) -> void {
+    u_long why_do_i_have_to_pass_reference = 1;
+    ioctlsocket(clientSocket, FIONBIO, &why_do_i_have_to_pass_reference);
+
+    Message received_msg;
+    int byte_count = 0;
+    while (client_active && clientSocket != SOCKET_ERROR) {
+        byte_count = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
+
+        if (byte_count > 0) {
+            printf("%suser %d: %s%s\n", 
+                (received_msg.type == msgType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), received_msg.author,
+                ANSI_COLORS_DEFAULT, received_msg.content);
+        }
+
+        this_thread::sleep_for(chrono::milliseconds(MESSAGE_CHECK_DELAY_MS));
     }
-    return Unit();
 }
+
 
 int main() {
     /* get_ip_port(); */
@@ -42,11 +56,12 @@ int main() {
             printf("type your message, up to %d characters\nuse :disconnect to disconnect\n", MAX_MESSAGE_LENGTH);
         }
     }
+
+    thread receive_thread = thread(handle_server, clientSocket);
     
     char msg[MAX_MESSAGE_LENGTH];
 
     while (true && clientSocket != SOCKET_ERROR) {
-        printf("%s>%s ", ANSI_COLORS_BLUE, ANSI_COLORS_DEFAULT);
         cin.getline(msg, MAX_MESSAGE_LENGTH);
 
         if (strcmp(msg, ":disconnect") == 0) {
@@ -55,13 +70,18 @@ int main() {
 
         expected<Unit, string> res = send_message(clientSocket, Message(msgType::User, msg));
         if (!res) {
+            WSACleanup();
             cout << res.error();
             clientSocket = SOCKET_ERROR;
             break;
         }
     }
 
+    client_active = false;
+
     printf("%sclosing socket & server%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+
+    receive_thread.join();
 
     if (clientSocket != SOCKET_ERROR) { // server will close connection if error occurs
         auto res = send_message(clientSocket, Message(msgType::System, CLIENT_DISCONNECT));

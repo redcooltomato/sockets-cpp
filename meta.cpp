@@ -10,7 +10,6 @@
 #include <cstring>
 
 
-
 #define ANSI_COLORS_DEFAULT "\033[39m"
 #define ANSI_COLORS_RED "\033[31m"
 #define ANSI_COLORS_GREEN "\033[32m"
@@ -21,7 +20,6 @@ const char CLIENT_CONNECT[] = "connected!!!";
 const char CLIENT_DISCONNECT[] = "disconnected!!!";
 
 const int MAX_MESSAGE_LENGTH = 300;
-
 
 
 struct Unit { // like the one in rust
@@ -36,12 +34,14 @@ enum msgType {
 struct Message {
     msgType type;
     char content[MAX_MESSAGE_LENGTH];
+    int author;
     Message() {}
-    Message(msgType t, const char* c) : type(t) { 
+    Message(msgType t, const char* c) : type(t), author(-1) { 
         strncpy(content, c, MAX_MESSAGE_LENGTH - 1);
         content[MAX_MESSAGE_LENGTH - 1] = '\0';
     }
 };
+
 
 auto init_wsa_and_get_socket() -> std::expected<SOCKET, std::string> {
     WSADATA wsaData;
@@ -65,4 +65,13 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, std::string> {
     }
 
     return newSocket;
+}
+
+auto send_message(SOCKET socket, Message msg) -> std::expected<Unit, std::string> {
+    int byteCount = send(socket, (char*)&msg, sizeof(msg), 0);
+    if (byteCount == SOCKET_ERROR) {
+        std::string err = std::to_string(WSAGetLastError());
+        return std::unexpected(std::string(ANSI_COLORS_RED) + "error occued when sending: " + err + "\n" + ANSI_COLORS_DEFAULT);
+    }
+    return Unit();
 }

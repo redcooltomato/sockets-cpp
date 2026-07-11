@@ -7,11 +7,13 @@
 #include <iostream>
 #include <expected>
 #include <string>
+#include <thread>
 
 #include "meta.cpp"
 
-void get_ip_port();
 
-auto send_message(SOCKET socket, Message msg) -> std::expected<Unit, std::string>;
+auto handle_server(SOCKET clientSocket) -> void;
+
+void get_ip_port();
 
 auto connect_to_server(SOCKET clientSocket) -> std::expected<Unit, std::string>;
