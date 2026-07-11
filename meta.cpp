@@ -36,7 +36,7 @@ struct Message {
     char content[MAX_MESSAGE_LENGTH];
     int author;
     Message() {}
-    Message(msgType t, const char* c) : type(t), author(-1) { 
+    Message(msgType t, const char* c, int a = -1) : type(t), author(a) { 
         strncpy(content, c, MAX_MESSAGE_LENGTH - 1);
         content[MAX_MESSAGE_LENGTH - 1] = '\0';
     }

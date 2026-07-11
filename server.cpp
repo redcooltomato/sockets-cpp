@@ -69,6 +69,11 @@ auto handle_server_commands() {
             server_active = false;
             printf("%sshutting down & joining threads...%s\n", ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
             break;
+        } else if (input.find(":broadcast") == 0) {
+            Message msg(msgType::System, input.substr(11, 200).c_str(), -666);
+            for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
+                    auto res = send_message(client_ptr->socket, msg);
+                }
         } else {
             printf("%sunknown command%s\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
         }
@@ -96,6 +101,9 @@ int main() {
             return -1;
         }
     }
+
+    printf("%s== server started ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    printf("%scommands: :close, :broadcast [message]%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
 
     commands_thread = thread(handle_server_commands);
 
@@ -162,7 +170,7 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, string> {
         WSACleanup();
         return unexpected(string(ANSI_COLORS_RED) + "listen failed: " + err + ANSI_COLORS_DEFAULT + '\n');
     } else {
-        printf("%s== listening with big rabbit ears ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+        printf("listening with big rabit ears\n");
     }
 
     return Unit();

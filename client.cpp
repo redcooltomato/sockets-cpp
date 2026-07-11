@@ -79,7 +79,7 @@ int main() {
 
     client_active = false;
 
-    printf("%sclosing socket & server%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    printf("%sclosing socket & client%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
 
     receive_thread.join();
 
