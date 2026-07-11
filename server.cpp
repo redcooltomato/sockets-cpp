@@ -12,6 +12,7 @@ int port = 30000;
 
 bool server_active = true;
 
+thread commands_thread;
 vector<clientConnection> clients;
 
 
@@ -59,6 +60,21 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     printf("%sclient with clientID %d disconnected%s\n", ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 }
 
+auto handle_server_commands() {
+    string input;
+    while (server_active) {
+        getline(cin, input);
+
+        if (input == ":close") {
+            server_active = false;
+            printf("%sshutting down & joining threads...%s\n", ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
+            break;
+        } else {
+            printf("%sunknown command%s\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
+        }
+    }
+}
+
 int main() {
     /* get_ip_port(); */
 
@@ -81,21 +97,28 @@ int main() {
         }
     }
 
+    commands_thread = thread(handle_server_commands);
+
+    u_long why_do_i_have_to_pass_reference = 1;
+    ioctlsocket(serverSocket, FIONBIO, &why_do_i_have_to_pass_reference);
+
     signal(SIGINT, handle_sigint_cleanup);
 
     SOCKET acceptSocket;
 
-    while (acceptSocket != INVALID_SOCKET && server_active) {
+    while (server_active) {
         acceptSocket = accept(serverSocket, NULL, NULL);
 
-        if (acceptSocket == INVALID_SOCKET) break;
+        if (acceptSocket != SOCKET_ERROR) {
+            clients.push_back(clientConnection(acceptSocket, clients.size(), thread(handle_client, acceptSocket, clients.size())));
+        }
+    }
 
-        clients.push_back(clientConnection(acceptSocket, clients.size(), thread(handle_client, acceptSocket, clients.size())));
-    }
+    commands_thread.join();
     
-    if (acceptSocket == INVALID_SOCKET && server_active) {
+    /* if (acceptSocket == INVALID_SOCKET && server_active) {
         cout << ANSI_COLORS_RED << "accept failed: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
-    }
+    } */
 
     for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
         client_ptr->thr.join();
@@ -107,8 +130,6 @@ int main() {
 }
 
 
-
-// stuff i dont want to look at
 
 auto get_ip_port() -> void {
     printf("enter ip:\n");
