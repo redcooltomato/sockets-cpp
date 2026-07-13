@@ -17,7 +17,8 @@ vector<clientConnection> clients;
 
 
 auto handle_client(SOCKET clientSocket, int clientID) -> void {
-    printf("%sclient with clientID %d connected!%s\n", ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
+    print("{}client with clientID {} connected!{}\n",
+        ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 
     Message received_msg;
     int byteCount = 0;
@@ -34,7 +35,7 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
                 break;
             }
 
-            printf("%sclient %d: %s%s\n", 
+            print("{}client {}: {}{}\n", 
                 (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), clientID,
                 ANSI_COLORS_DEFAULT, received_msg.content);
 
@@ -57,7 +58,8 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
         this_thread::sleep_for(chrono::milliseconds(CLIENT_MESSAGE_CHECK_DELAY_MS));
     }
 
-    printf("%sclient with clientID %d disconnected%s\n", ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
+    print("{}client with clientID {} disconnected{}\n",
+        ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 }
 
 auto handle_server_commands() {
@@ -67,7 +69,8 @@ auto handle_server_commands() {
 
         if (input == ":close") {
             server_active = false;
-            printf("%sshutting down & joining threads...%s\n", ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
+            print("{}shutting down & joining threads...{}\n",
+                ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
             break;
         } else if (input.find(":broadcast") == 0) {
             Message msg(MessageType::System, input.substr(11, 200).c_str(), -666);
@@ -75,13 +78,13 @@ auto handle_server_commands() {
                     auto res = send_message(client_ptr->socket, msg);
                 }
         } else {
-            printf("%sunknown command%s\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
+            print("{}unknown command{}\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
         }
     }
 }
 
 int main() {
-    /* get_ip_port(); */
+    get_ip_port();
 
     SOCKET serverSocket;
     {
@@ -89,7 +92,7 @@ int main() {
         if (res) {
             serverSocket = res.value();
         } else {
-            cout << res.error();
+            print("{}\n", res.error());
             return -1;
         }
     }
@@ -97,13 +100,13 @@ int main() {
     {
         expected<Unit, string> res = bind_and_listen(serverSocket);
         if (!res) {
-            cout << res.error();
+            print("{}\n", res.error());
             return -1;
         }
     }
 
-    printf("%s== server started ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
-    printf("%scommands: :close, :broadcast [message]%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    print("{}== server started =={}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    print("{}commands: :close, :broadcast [message]{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
 
     commands_thread = thread(handle_server_commands);
 
@@ -132,7 +135,7 @@ int main() {
         client_ptr->thr.join();
     }
 
-    printf("%sclosing socket & server%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    print("{}closing socket & server{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     closesocket(serverSocket);
     WSACleanup();
 }
@@ -140,14 +143,15 @@ int main() {
 
 
 auto get_ip_port() -> void {
-    printf("enter ip:\n");
+    print("enter ip:\n");
     cin >> IP;
-    printf("enter port:\n");
+    print("enter port:\n");
     cin >> port;
 }
 
 auto handle_sigint_cleanup(int sig) -> void {
-    printf("%sctrl-c :(%s\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
+    print("{}ctrl-c :({}\n",
+        ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
     server_active = false;
 }
 
@@ -160,7 +164,7 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, string> {
         string err = to_string(WSAGetLastError());
         closesocket(serverSocket);
         WSACleanup();
-        return unexpected(string(ANSI_COLORS_RED) + "bind failed: " + err + ANSI_COLORS_DEFAULT + "\n");
+        return unexpected(string(ANSI_COLORS_RED) + "bind failed: " + err + ANSI_COLORS_DEFAULT);
     } else {
         cout << "bind is ok!" << endl;
     }
@@ -168,9 +172,9 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, string> {
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
         string err = to_string(WSAGetLastError());
         WSACleanup();
-        return unexpected(string(ANSI_COLORS_RED) + "listen failed: " + err + ANSI_COLORS_DEFAULT + '\n');
+        return unexpected(string(ANSI_COLORS_RED) + "listen failed: " + err + ANSI_COLORS_DEFAULT);
     } else {
-        printf("listening with big rabit ears\n");
+        print("listening with big rabit ears\n");
     }
 
     return Unit();

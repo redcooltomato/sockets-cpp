@@ -11,6 +11,7 @@
 #include <chrono>
 #include <expected>
 #include <string>
+#include <print>
 
 #include "meta.cpp"
 

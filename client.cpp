@@ -34,7 +34,7 @@ auto handle_server(SOCKET clientSocket) -> void {
 
 
 int main() {
-    /* get_ip_port(); */
+    get_ip_port();
 
     SOCKET clientSocket;
     {
@@ -42,7 +42,7 @@ int main() {
         if (res) {
         clientSocket = res.value();
         } else {
-            cout << res.error();
+            print("{}\n", res.error());
             return -1;
         }
     }
@@ -50,12 +50,12 @@ int main() {
     {
         expected<Unit, string> res = connect_to_server(clientSocket);
         if (!res) {
-            cout << res.error();
+            print("{}\n", res.error());
             clientSocket = SOCKET_ERROR;
         } else {
             /* send_message(clientSocket, Message(MessageTypes::System, CLIENT_CONNECT)); */
 
-            printf("%stype your message, up to %d characters\nuse :disconnect to disconnect%s\n",
+            print("{}type your message, up to {} characters\nuse :disconnect to disconnect{}\n",
                 ANSI_COLORS_GREEN, MAX_MESSAGE_LENGTH, ANSI_COLORS_DEFAULT);
         }
     }
@@ -74,7 +74,7 @@ int main() {
         expected<Unit, string> res = send_message(clientSocket, Message(MessageType::User, msg));
         if (!res) {
             WSACleanup();
-            cout << res.error();
+            print("{}\n", res.error());
             clientSocket = SOCKET_ERROR;
             break;
         }
@@ -82,7 +82,8 @@ int main() {
 
     client_active = false;
 
-    printf("%sclosing socket & client%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    print("{}closing socket & client{}\n",
+        ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
 
     receive_thread.join();
 
@@ -99,9 +100,9 @@ int main() {
 
 
 auto get_ip_port() -> void {
-    printf("enter ip:\n");
+    print("enter ip:\n");
     cin >> IP;
-    printf("enter port:\n");
+    print("enter port:\n");
     cin >> port;
     cin.ignore(256, '\n');
 }
@@ -114,9 +115,10 @@ auto connect_to_server(SOCKET clientSocket) -> expected<Unit, string> {
     if (connect(clientSocket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
         string err = to_string(WSAGetLastError());
         WSACleanup();
-        return unexpected(string(ANSI_COLORS_RED) + "client connect failed: " + err + ANSI_COLORS_DEFAULT + '\n');
+        return unexpected(string(ANSI_COLORS_RED) + "client connect failed: " + err + ANSI_COLORS_DEFAULT);
     } else {
-        printf("%s== connected ==%s\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+        print("{}== connected =={}\n",
+            ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     }
 
     return Unit();
