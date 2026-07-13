@@ -27,8 +27,8 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     u_long why_do_i_have_to_pass_reference = 1;
     ioctlsocket(clientSocket, FIONBIO, &why_do_i_have_to_pass_reference);
     
-    while (clientSocket != SOCKET_ERROR && server_active) {
-        int byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
+    while (clientSocket != (unsigned long long)SOCKET_ERROR && server_active) {
+        byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
         if (byteCount > 0) {
             if (received_msg.type == MessageType::System && strcmp(received_msg.content, CLIENT_DISCONNECT) == 0) {
@@ -120,7 +120,7 @@ int main() {
     while (server_active) {
         acceptSocket = accept(serverSocket, NULL, NULL);
 
-        if (acceptSocket != SOCKET_ERROR) {
+        if (acceptSocket != (unsigned long long)SOCKET_ERROR) {
             clients.push_back(clientConnection(acceptSocket, clients.size(), thread(handle_client, acceptSocket, clients.size())));
         }
     }

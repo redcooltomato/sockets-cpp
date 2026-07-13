@@ -17,7 +17,7 @@ auto handle_server(SOCKET clientSocket) -> void {
 
     Message received_msg;
     int byte_count = 0;
-    while (client_active && clientSocket != SOCKET_ERROR) {
+    while (client_active && clientSocket != (unsigned long long)SOCKET_ERROR) {
         byte_count = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
         if (byte_count > 0) {
@@ -64,7 +64,7 @@ int main() {
     
     char msg[MAX_MESSAGE_LENGTH];
 
-    while (true && clientSocket != SOCKET_ERROR) {
+    while (true && clientSocket != (unsigned long long)SOCKET_ERROR) {
         cin.getline(msg, MAX_MESSAGE_LENGTH);
 
         if (strcmp(msg, ":disconnect") == 0 || strcmp(msg, ":dis") == 0) {
@@ -87,7 +87,7 @@ int main() {
 
     receive_thread.join();
 
-    if (clientSocket != SOCKET_ERROR) { // server will close connection if error occurs
+    if (clientSocket != (unsigned long long)SOCKET_ERROR) { // server will close connection if error occurs
         auto res = send_message(clientSocket, Message(MessageType::System, CLIENT_DISCONNECT));
         if (res) { // let me close the stupid client
             closesocket(clientSocket);
