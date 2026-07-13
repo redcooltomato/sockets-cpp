@@ -26,17 +26,17 @@ struct Unit { // like the one in rust
     Unit() {}
 };
 
-enum msgType {
+enum MessageType {
     System,
     User
 };
 
 struct Message {
-    msgType type;
+    MessageType type;
     char content[MAX_MESSAGE_LENGTH];
     int author;
     Message() {}
-    Message(msgType t, const char* c, int a = -1) : type(t), author(a) { 
+    Message(MessageType t, const char* c, int a = -1) : type(t), author(a) { 
         strncpy(content, c, MAX_MESSAGE_LENGTH - 1);
         content[MAX_MESSAGE_LENGTH - 1] = '\0';
     }

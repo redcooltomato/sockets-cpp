@@ -30,15 +30,15 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
         int byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
         if (byteCount > 0) {
-            if (received_msg.type == msgType::System && strcmp(received_msg.content, CLIENT_DISCONNECT) == 0) {
+            if (received_msg.type == MessageType::System && strcmp(received_msg.content, CLIENT_DISCONNECT) == 0) {
                 break;
             }
 
             printf("%sclient %d: %s%s\n", 
-                (received_msg.type == msgType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), clientID,
+                (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), clientID,
                 ANSI_COLORS_DEFAULT, received_msg.content);
 
-            if (received_msg.type == msgType::User) {
+            if (received_msg.type == MessageType::User) {
                 received_msg.author = clientID;
                 for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
                     if (client_ptr->clientID == clientID) continue;
@@ -70,7 +70,7 @@ auto handle_server_commands() {
             printf("%sshutting down & joining threads...%s\n", ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
             break;
         } else if (input.find(":broadcast") == 0) {
-            Message msg(msgType::System, input.substr(11, 200).c_str(), -666);
+            Message msg(MessageType::System, input.substr(11, 200).c_str(), -666);
             for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
                     auto res = send_message(client_ptr->socket, msg);
                 }

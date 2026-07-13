@@ -21,9 +21,11 @@ auto handle_server(SOCKET clientSocket) -> void {
         byte_count = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
         if (byte_count > 0) {
-            printf("%suser %d: %s%s\n", 
-                (received_msg.type == msgType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), received_msg.author,
-                ANSI_COLORS_DEFAULT, received_msg.content);
+            print("{}{}:{} {}\n", 
+                (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE),
+                (received_msg.type == MessageType::System ? string("server") : (string("user ") + to_string(received_msg.author))),
+                ANSI_COLORS_DEFAULT,
+                received_msg.content);
         }
 
         this_thread::sleep_for(chrono::milliseconds(MESSAGE_CHECK_DELAY_MS));
@@ -51,9 +53,10 @@ int main() {
             cout << res.error();
             clientSocket = SOCKET_ERROR;
         } else {
-            /* send_message(clientSocket, Message(msgTypes::System, CLIENT_CONNECT)); */
+            /* send_message(clientSocket, Message(MessageTypes::System, CLIENT_CONNECT)); */
 
-            printf("type your message, up to %d characters\nuse :disconnect to disconnect\n", MAX_MESSAGE_LENGTH);
+            printf("%stype your message, up to %d characters\nuse :disconnect to disconnect%s\n",
+                ANSI_COLORS_GREEN, MAX_MESSAGE_LENGTH, ANSI_COLORS_DEFAULT);
         }
     }
 
@@ -64,11 +67,11 @@ int main() {
     while (true && clientSocket != SOCKET_ERROR) {
         cin.getline(msg, MAX_MESSAGE_LENGTH);
 
-        if (strcmp(msg, ":disconnect") == 0) {
+        if (strcmp(msg, ":disconnect") == 0 || strcmp(msg, ":dis") == 0) {
             break;
         }
 
-        expected<Unit, string> res = send_message(clientSocket, Message(msgType::User, msg));
+        expected<Unit, string> res = send_message(clientSocket, Message(MessageType::User, msg));
         if (!res) {
             WSACleanup();
             cout << res.error();
@@ -84,7 +87,7 @@ int main() {
     receive_thread.join();
 
     if (clientSocket != SOCKET_ERROR) { // server will close connection if error occurs
-        auto res = send_message(clientSocket, Message(msgType::System, CLIENT_DISCONNECT));
+        auto res = send_message(clientSocket, Message(MessageType::System, CLIENT_DISCONNECT));
         if (res) { // let me close the stupid client
             closesocket(clientSocket);
         }
