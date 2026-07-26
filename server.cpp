@@ -1,19 +1,46 @@
-#include "server.h"
+#include <winsock2.h>
+#include <windows.h>
+#include <ws2tcpip.h>
+#include <signal.h>
+
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <chrono>
+#include <expected>
+#include <string>
+#include <print>
+
+#include "meta.cpp"
+
+struct clientConnection;
+
+auto bind_and_listen(SOCKET serverSocket) -> std::expected<Unit, std::string>;
+
+auto handle_sigint_cleanup(int sig) -> void;
+
+auto handle_client(SOCKET clientSocket, int sessionID) -> void;
 
 using namespace std;
 
 
-const int CONNECTION_QUEUE_SIZE = 5;
+const int CONNECTION_QUEUE_SIZE = 5; // whatever this is for
 const int CLIENT_MESSAGE_CHECK_DELAY_MS = 250;
-const int CLIENT_WAIT_TIME_S = 60;
-
-char IP[20] = "127.0.0.1"; // defaults
-int port = 30000;
+const int CLIENT_WAIT_TIME_S = 180;
 
 bool server_active = true;
 
 thread commands_thread;
 vector<clientConnection> clients;
+
+struct clientConnection {
+    SOCKET socket;
+    int clientID;
+    std::thread thr;
+
+    clientConnection() {}
+    clientConnection(SOCKET s, int id, std::thread t): socket(s), clientID(id), thr(move(t)) {}
+};
 
 
 auto handle_client(SOCKET clientSocket, int clientID) -> void {
@@ -67,12 +94,12 @@ auto handle_server_commands() {
     while (server_active) {
         getline(cin, input);
 
-        if (input == ":close") {
+        if (input == ":close" || input == ":c") {
             server_active = false;
             print("{}shutting down & joining threads...{}\n",
                 ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
             break;
-        } else if (input.find(":broadcast") == 0) {
+        } else if (input.find(":broadcast") == 0 || input.find(":bro")) {
             Message msg(MessageType::System, input.substr(11, 200).c_str(), -666);
             for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
                     auto res = send_message(client_ptr->socket, msg);
@@ -141,13 +168,6 @@ int main() {
 }
 
 
-
-auto get_ip_port() -> void {
-    print("enter ip:\n");
-    cin >> IP;
-    print("enter port:\n");
-    cin >> port;
-}
 
 auto handle_sigint_cleanup(int sig) -> void {
     print("{}ctrl-c :({}\n",

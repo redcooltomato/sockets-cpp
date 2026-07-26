@@ -1,10 +1,21 @@
-#include "client.h"
+#include <winsock2.h>
+#include <windows.h>
+#include <ws2tcpip.h>
+
+#include <iostream>
+#include <expected>
+#include <string>
+#include <thread>
+#include <print>
+
+#include "meta.cpp"
+
+auto handle_server(SOCKET clientSocket) -> void;
+
+auto connect_to_server(SOCKET clientSocket) -> std::expected<Unit, std::string>;
 
 using namespace std;
 
-
-char IP[] = "127.0.0.1"; // defaults
-int port = 30000;
 
 const int MESSAGE_CHECK_DELAY_MS = 250;
 
@@ -55,7 +66,7 @@ int main() {
         } else {
             /* send_message(clientSocket, Message(MessageTypes::System, CLIENT_CONNECT)); */
 
-            print("{}type your message, up to {} characters\nuse :disconnect to disconnect{}\n",
+            print("{}type your message, up to {} characters\nuse :dis to disconnect{}\n",
                 ANSI_COLORS_GREEN, MAX_MESSAGE_LENGTH, ANSI_COLORS_DEFAULT);
         }
     }
@@ -98,14 +109,6 @@ int main() {
 }
 
 
-
-auto get_ip_port() -> void {
-    print("enter ip:\n");
-    cin >> IP;
-    print("enter port:\n");
-    cin >> port;
-    cin.ignore(256, '\n');
-}
 
 auto connect_to_server(SOCKET clientSocket) -> expected<Unit, string> {
     sockaddr_in clientService;

@@ -18,8 +18,13 @@
 
 const char CLIENT_CONNECT[] = "connected!!!";
 const char CLIENT_DISCONNECT[] = "disconnected!!!";
+const char SERVER_CONNECT[] = "server connected!!!!";
+const char SERVER_DISCONNECT[] = "server disconnected!!!!";
 
 const int MAX_MESSAGE_LENGTH = 300;
+
+char IP[20] = "127.0.0.1"; // defaults
+int port = 30000;
 
 
 struct Unit { // like the one in rust
@@ -74,4 +79,19 @@ auto send_message(SOCKET socket, Message msg) -> std::expected<Unit, std::string
         return std::unexpected(std::string(ANSI_COLORS_RED) + "error occued when sending: " + err + "\n" + ANSI_COLORS_DEFAULT);
     }
     return Unit();
+}
+
+auto get_ip_port() -> void {
+    std::print("enter ip:\n");
+    std::cin >> IP;
+
+    std::print("enter port:\n");
+    do {
+        std::cin >> port;
+        if (port <= 1024) {
+            std::print("port must be >1024 to avoid conflicts\n");
+        }
+    } while (port <= 1024);
+
+    std::cin.ignore(256, '\n');
 }
