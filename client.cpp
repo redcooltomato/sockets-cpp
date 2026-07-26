@@ -23,8 +23,8 @@ bool client_active = true;
 
 
 auto handle_server(SOCKET clientSocket) -> void {
-    u_long thread_is_non_blocking = false;
-    ioctlsocket(clientSocket, FIONBIO, &thread_is_non_blocking);
+    u_long socket_is_non_blocking = true;
+    ioctlsocket(clientSocket, FIONBIO, &socket_is_non_blocking);
 
     Message received_msg;
     int byte_count = 0;

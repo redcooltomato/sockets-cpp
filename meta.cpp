@@ -57,7 +57,9 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, std::string> {
     if (wsaerr) {
         return std::unexpected(std::string(ANSI_COLORS_RED) + "win sock dll not found\n" + ANSI_COLORS_DEFAULT);
     } else {
+        #ifdef DEV
         std::print("win sock dll found\n");
+        #endif
     }
 
     SOCKET newSocket = INVALID_SOCKET;
@@ -67,7 +69,9 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, std::string> {
         WSACleanup();
         return std::unexpected(std::string(ANSI_COLORS_RED) + "error at socket: " + err + ANSI_COLORS_DEFAULT);
     } else {
+        #ifdef DEV
         std::print("socket is ok!\n");
+        #endif
     }
 
     return newSocket;

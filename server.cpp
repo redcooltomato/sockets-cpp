@@ -50,14 +50,16 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     int byteCount = 0;
     auto time_since_last_msg = chrono::steady_clock::now();
 
-    u_long thread_is_non_blocking = true;
-    ioctlsocket(clientSocket, FIONBIO, &thread_is_non_blocking);
+    u_long socket_is_non_blocking = true;
+    ioctlsocket(clientSocket, FIONBIO, &socket_is_non_blocking);
     
     while (clientSocket != (unsigned long long)SOCKET_ERROR && server_active) {
         byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
         if (byteCount > 0) {
             if (received_msg.type == MessageType::System && strcmp(received_msg.content, CLIENT_DISCONNECT) == 0) {
+                clientSocket = (unsigned long long)SOCKET_ERROR;
+                
                 break;
             }
 
@@ -85,7 +87,7 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     }
 
     if (clientSocket != (unsigned long long)SOCKET_ERROR) {
-        thread_is_non_blocking = false;
+        socket_is_non_blocking = false;
 
         expected<Unit, std::string> discard = send_message(clientSocket, Message(
             MessageType::System,
@@ -93,7 +95,9 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
             AUTHOR_SERVER
         ));
 
+        #ifdef DEV
         print("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
+        #endif
     }
 
     print("{}client with clientID {} disconnected{}\n",
@@ -153,8 +157,8 @@ int main() {
 
     commands_thread = thread(handle_server_commands);
 
-    u_long thread_is_non_blocking = true;
-    ioctlsocket(serverSocket, FIONBIO, &thread_is_non_blocking);
+    u_long socket_is_non_blocking = true;
+    ioctlsocket(serverSocket, FIONBIO, &socket_is_non_blocking);
 
     signal(SIGINT, handle_sigint_cleanup);
 
@@ -203,7 +207,9 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, string> {
         WSACleanup();
         return unexpected(string(ANSI_COLORS_RED) + "bind failed: " + err + ANSI_COLORS_DEFAULT);
     } else {
+        #ifdef DEV
         cout << "bind is ok!" << endl;
+        #endif
     }
 
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
