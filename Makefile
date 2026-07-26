@@ -1,3 +1,6 @@
 all:
 	g++ -std=c++23 server.cpp -o server -lws2_32 -lstdc++exp -O3 -Wall -Werror -Wunused
 	g++ -std=c++23 client.cpp -o client -lws2_32 -lstdc++exp -O3 -Wall -Werror -Wunused
+dev:
+	g++ -std=c++23 server.cpp -o server -lws2_32 -lstdc++exp -O3 -Wall -Werror -Wunused -DDEV
+	g++ -std=c++23 client.cpp -o client -lws2_32 -lstdc++exp -O3 -Wall -Werror -Wunused -DDEV

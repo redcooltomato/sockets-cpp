@@ -21,6 +21,8 @@ const char CLIENT_DISCONNECT[] = "disconnected!!!";
 const char SERVER_CONNECT[] = "server connected!!!!";
 const char SERVER_DISCONNECT[] = "server disconnected!!!!";
 
+const int AUTHOR_SERVER = -666;
+
 const int MAX_MESSAGE_LENGTH = 300;
 
 char IP[20] = "127.0.0.1"; // defaults
@@ -40,8 +42,7 @@ struct Message {
     MessageType type;
     char content[MAX_MESSAGE_LENGTH];
     int author;
-    Message() {}
-    Message(MessageType t, const char* c, int a = -1) : type(t), author(a) { 
+    Message(MessageType t = MessageType::System, const char *c = "", int a = -1) : type(t), author(a) { 
         strncpy(content, c, MAX_MESSAGE_LENGTH - 1);
         content[MAX_MESSAGE_LENGTH - 1] = '\0';
     }

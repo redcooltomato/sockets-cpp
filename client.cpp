@@ -23,8 +23,8 @@ bool client_active = true;
 
 
 auto handle_server(SOCKET clientSocket) -> void {
-    u_long why_do_i_have_to_pass_reference = 1;
-    ioctlsocket(clientSocket, FIONBIO, &why_do_i_have_to_pass_reference);
+    u_long thread_is_non_blocking = false;
+    ioctlsocket(clientSocket, FIONBIO, &thread_is_non_blocking);
 
     Message received_msg;
     int byte_count = 0;
@@ -32,6 +32,13 @@ auto handle_server(SOCKET clientSocket) -> void {
         byte_count = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
         if (byte_count > 0) {
+            if (received_msg.type == MessageType::System && strcmp(received_msg.content, SERVER_DISCONNECT) == 0) {
+                print("{}server disconnected{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+                client_active = false;
+
+                break;
+            }
+
             print("{}{}:{} {}\n", 
                 (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE),
                 (received_msg.type == MessageType::System ? string("server") : (string("user ") + to_string(received_msg.author))),
@@ -45,7 +52,9 @@ auto handle_server(SOCKET clientSocket) -> void {
 
 
 int main() {
+    #ifndef DEV
     get_ip_port();
+    #endif
 
     SOCKET clientSocket;
     {
@@ -54,7 +63,7 @@ int main() {
         clientSocket = res.value();
         } else {
             print("{}\n", res.error());
-            return -1;
+            return 1;
         }
     }
 
@@ -75,10 +84,10 @@ int main() {
     
     char msg[MAX_MESSAGE_LENGTH];
 
-    while (true && clientSocket != (unsigned long long)SOCKET_ERROR) {
+    while (client_active && clientSocket != (unsigned long long)SOCKET_ERROR) {
         cin.getline(msg, MAX_MESSAGE_LENGTH);
 
-        if (strcmp(msg, ":disconnect") == 0 || strcmp(msg, ":dis") == 0) {
+        if (strcmp(msg, ":disconnect") == 0 || strcmp(msg, ":dis") == 0 || !client_active) {
             break;
         }
 

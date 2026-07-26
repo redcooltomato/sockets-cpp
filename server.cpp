@@ -38,7 +38,6 @@ struct clientConnection {
     int clientID;
     std::thread thr;
 
-    clientConnection() {}
     clientConnection(SOCKET s, int id, std::thread t): socket(s), clientID(id), thr(move(t)) {}
 };
 
@@ -51,8 +50,8 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     int byteCount = 0;
     auto time_since_last_msg = chrono::steady_clock::now();
 
-    u_long why_do_i_have_to_pass_reference = 1;
-    ioctlsocket(clientSocket, FIONBIO, &why_do_i_have_to_pass_reference);
+    u_long thread_is_non_blocking = true;
+    ioctlsocket(clientSocket, FIONBIO, &thread_is_non_blocking);
     
     while (clientSocket != (unsigned long long)SOCKET_ERROR && server_active) {
         byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
@@ -85,12 +84,25 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
         this_thread::sleep_for(chrono::milliseconds(CLIENT_MESSAGE_CHECK_DELAY_MS));
     }
 
+    if (clientSocket != (unsigned long long)SOCKET_ERROR) {
+        thread_is_non_blocking = false;
+
+        expected<Unit, std::string> discard = send_message(clientSocket, Message(
+            MessageType::System,
+            SERVER_DISCONNECT,
+            AUTHOR_SERVER
+        ));
+
+        print("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
+    }
+
     print("{}client with clientID {} disconnected{}\n",
         ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 }
 
 auto handle_server_commands() {
     string input;
+    
     while (server_active) {
         getline(cin, input);
 
@@ -98,9 +110,11 @@ auto handle_server_commands() {
             server_active = false;
             print("{}shutting down & joining threads...{}\n",
                 ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
+
             break;
-        } else if (input.find(":broadcast") == 0 || input.find(":bro")) {
-            Message msg(MessageType::System, input.substr(11, 200).c_str(), -666);
+        } else if (input.find(":broadcast") == 0) {
+            Message msg(MessageType::System, input.substr(11, 200).c_str(), AUTHOR_SERVER);
+
             for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
                     auto res = send_message(client_ptr->socket, msg);
                 }
@@ -111,7 +125,9 @@ auto handle_server_commands() {
 }
 
 int main() {
+    #ifndef DEV
     get_ip_port();
+    #endif
 
     SOCKET serverSocket;
     {
@@ -120,7 +136,7 @@ int main() {
             serverSocket = res.value();
         } else {
             print("{}\n", res.error());
-            return -1;
+            return 1;
         }
     }
 
@@ -128,7 +144,7 @@ int main() {
         expected<Unit, string> res = bind_and_listen(serverSocket);
         if (!res) {
             print("{}\n", res.error());
-            return -1;
+            return 1;
         }
     }
 
@@ -137,8 +153,8 @@ int main() {
 
     commands_thread = thread(handle_server_commands);
 
-    u_long why_do_i_have_to_pass_reference = 1;
-    ioctlsocket(serverSocket, FIONBIO, &why_do_i_have_to_pass_reference);
+    u_long thread_is_non_blocking = true;
+    ioctlsocket(serverSocket, FIONBIO, &thread_is_non_blocking);
 
     signal(SIGINT, handle_sigint_cleanup);
 
@@ -151,12 +167,12 @@ int main() {
             clients.push_back(clientConnection(acceptSocket, clients.size(), thread(handle_client, acceptSocket, clients.size())));
         }
     }
-
-    commands_thread.join();
     
     /* if (acceptSocket == INVALID_SOCKET && server_active) {
         cout << ANSI_COLORS_RED << "accept failed: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
     } */
+
+    commands_thread.join();
 
     for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
         client_ptr->thr.join();
@@ -169,6 +185,7 @@ int main() {
 
 
 
+// todo: remove
 auto handle_sigint_cleanup(int sig) -> void {
     print("{}ctrl-c :({}\n",
         ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
