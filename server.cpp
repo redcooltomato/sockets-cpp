@@ -117,11 +117,13 @@ auto handle_server_commands() {
 
             break;
         } else if (input.find(":broadcast") == 0) {
-            Message msg(MessageType::System, input.substr(11, 200).c_str(), AUTHOR_SERVER);
+            if (input.length() > 12) {
+                Message msg(MessageType::System, input.substr(11, 200).c_str(), AUTHOR_SERVER);
 
-            for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
+                for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
                     auto res = send_message(client_ptr->socket, msg);
                 }
+            }
         } else {
             print("{}unknown command{}\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
         }
