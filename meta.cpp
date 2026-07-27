@@ -38,6 +38,12 @@ enum MessageType {
     User
 };
 
+struct FancyError {
+    int code;
+    std::string text;
+    FancyError(std::string t, int c = -1) : code(c), text(t) {}
+};
+
 struct Message {
     MessageType type;
     char content[MAX_MESSAGE_LENGTH];
@@ -49,7 +55,7 @@ struct Message {
 };
 
 
-auto init_wsa_and_get_socket() -> std::expected<SOCKET, std::string> {
+auto init_wsa_and_get_socket() -> std::expected<SOCKET, FancyError> {
     WSADATA wsaData;
     int wsaerr;
     WORD wVersion = MAKEWORD(2, 2);
@@ -65,9 +71,9 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, std::string> {
     SOCKET newSocket = INVALID_SOCKET;
     newSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (newSocket == INVALID_SOCKET) {
-        std::string err = std::to_string(WSAGetLastError());
+        int err = WSAGetLastError();
         WSACleanup();
-        return std::unexpected(std::string(ANSI_COLORS_RED) + "error at socket: " + err + ANSI_COLORS_DEFAULT);
+        return std::unexpected(FancyError(std::string(ANSI_COLORS_RED) + "error at socket: " + std::to_string(err) + ANSI_COLORS_DEFAULT, err));
     } else {
         #ifdef DEV
         std::print("socket is ok!\n");
@@ -77,11 +83,11 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, std::string> {
     return newSocket;
 }
 
-auto send_message(SOCKET socket, Message msg) -> std::expected<Unit, std::string> {
+auto send_message(SOCKET socket, Message msg) -> std::expected<Unit, FancyError> {
     int byteCount = send(socket, (char*)&msg, sizeof(msg), 0);
     if (byteCount == SOCKET_ERROR) {
-        std::string err = std::to_string(WSAGetLastError());
-        return std::unexpected(std::string(ANSI_COLORS_RED) + "error occued when sending: " + err + "\n" + ANSI_COLORS_DEFAULT);
+        int err = WSAGetLastError();
+        return std::unexpected(FancyError(std::string(ANSI_COLORS_RED) + "error occued when sending: " + std::to_string(err) + "\n" + ANSI_COLORS_DEFAULT, err));
     }
     return Unit();
 }

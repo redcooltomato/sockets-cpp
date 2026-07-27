@@ -15,7 +15,7 @@
 
 struct clientConnection;
 
-auto bind_and_listen(SOCKET serverSocket) -> std::expected<Unit, std::string>;
+auto bind_and_listen(SOCKET serverSocket) -> std::expected<Unit, FancyError>;
 
 auto handle_sigint_cleanup(int sig) -> void;
 
@@ -89,7 +89,7 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     if (clientSocket != (unsigned long long)SOCKET_ERROR) {
         socket_is_non_blocking = false;
 
-        expected<Unit, std::string> discard = send_message(clientSocket, Message(
+        expected<Unit, FancyError> discard = send_message(clientSocket, Message(
             MessageType::System,
             SERVER_DISCONNECT,
             AUTHOR_SERVER
@@ -135,19 +135,19 @@ int main() {
 
     SOCKET serverSocket;
     {
-        expected<SOCKET, string> res = init_wsa_and_get_socket();
+        expected<SOCKET, FancyError> res = init_wsa_and_get_socket();
         if (res) {
             serverSocket = res.value();
         } else {
-            print("{}\n", res.error());
+            print("{}\n", res.error().text);
             return 1;
         }
     }
 
     {
-        expected<Unit, string> res = bind_and_listen(serverSocket);
+        expected<Unit, FancyError> res = bind_and_listen(serverSocket);
         if (!res) {
-            print("{}\n", res.error());
+            print("{}\n", res.error().text);
             return 1;
         }
     }
@@ -196,16 +196,16 @@ auto handle_sigint_cleanup(int sig) -> void {
     server_active = false;
 }
 
-auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, string> {
+auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, FancyError> {
     sockaddr_in service;
     service.sin_family = AF_INET;
     InetPtonA(AF_INET, IP, &service.sin_addr.s_addr);
     service.sin_port = htons(port);
     if (bind(serverSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR) {
-        string err = to_string(WSAGetLastError());
+        int err = WSAGetLastError();
         closesocket(serverSocket);
         WSACleanup();
-        return unexpected(string(ANSI_COLORS_RED) + "bind failed: " + err + ANSI_COLORS_DEFAULT);
+        return unexpected(FancyError(string(ANSI_COLORS_RED) + "bind failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err));
     } else {
         #ifdef DEV
         cout << "bind is ok!" << endl;
@@ -213,9 +213,9 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, string> {
     }
 
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
-        string err = to_string(WSAGetLastError());
+        int err = WSAGetLastError();
         WSACleanup();
-        return unexpected(string(ANSI_COLORS_RED) + "listen failed: " + err + ANSI_COLORS_DEFAULT);
+        return unexpected(FancyError(string(ANSI_COLORS_RED) + "listen failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err));
     } else {
         print("listening with big rabit ears\n");
     }

@@ -12,7 +12,7 @@
 
 auto handle_server(SOCKET clientSocket) -> void;
 
-auto connect_to_server(SOCKET clientSocket) -> std::expected<Unit, std::string>;
+auto connect_to_server(SOCKET clientSocket) -> std::expected<Unit, FancyError>;
 
 using namespace std;
 
@@ -31,10 +31,16 @@ auto handle_server(SOCKET clientSocket) -> void {
     while (client_active && clientSocket != (unsigned long long)SOCKET_ERROR) {
         byte_count = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
+        if (byte_count == 0) print("fhbafwawf\n");
+
         if (byte_count > 0) {
             if (received_msg.type == MessageType::System && strcmp(received_msg.content, SERVER_DISCONNECT) == 0) {
                 print("{}server disconnected{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
                 client_active = false;
+
+                #ifdef DEV
+                print("server killed itself\n");
+                #endif
 
                 break;
             }
@@ -58,19 +64,19 @@ int main() {
 
     SOCKET clientSocket;
     {
-        expected<SOCKET, string> res = init_wsa_and_get_socket();
+        expected<SOCKET, FancyError> res = init_wsa_and_get_socket();
         if (res) {
         clientSocket = res.value();
         } else {
-            print("{}\n", res.error());
+            print("{}\n", res.error().text);
             return 1;
         }
     }
 
     {
-        expected<Unit, string> res = connect_to_server(clientSocket);
+        expected<Unit, FancyError> res = connect_to_server(clientSocket);
         if (!res) {
-            print("{}\n", res.error());
+            print("{}\n", res.error().text);
             clientSocket = SOCKET_ERROR;
         } else {
             /* send_message(clientSocket, Message(MessageTypes::System, CLIENT_CONNECT)); */
@@ -91,10 +97,16 @@ int main() {
             break;
         }
 
-        expected<Unit, string> res = send_message(clientSocket, Message(MessageType::User, msg));
+        expected<Unit, FancyError> res = send_message(clientSocket, Message(MessageType::User, msg));
         if (!res) {
             WSACleanup();
-            print("{}\n", res.error());
+
+            if (res.error().code == 10054) {
+                print("{}error occured when sending the message. server has likely disconnected.{}\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
+            } else {
+                print("{}\n", res.error().text);
+            }
+            
             clientSocket = SOCKET_ERROR;
             break;
         }
@@ -119,15 +131,15 @@ int main() {
 
 
 
-auto connect_to_server(SOCKET clientSocket) -> expected<Unit, string> {
+auto connect_to_server(SOCKET clientSocket) -> expected<Unit, FancyError> {
     sockaddr_in clientService;
     clientService.sin_family = AF_INET;
     InetPtonA(AF_INET, IP, &clientService.sin_addr.s_addr);
     clientService.sin_port = htons(port);
     if (connect(clientSocket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
-        string err = to_string(WSAGetLastError());
+        int err = WSAGetLastError();
         WSACleanup();
-        return unexpected(string(ANSI_COLORS_RED) + "client connect failed: " + err + ANSI_COLORS_DEFAULT);
+        return unexpected(FancyError(string(ANSI_COLORS_RED) + "client connect failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err));
     } else {
         print("{}== connected =={}\n",
             ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
