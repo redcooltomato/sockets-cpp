@@ -20,10 +20,13 @@ const char CLIENT_CONNECT[] = "connected!!!";
 const char CLIENT_DISCONNECT[] = "disconnected!!!";
 const char SERVER_CONNECT[] = "server connected!!!!";
 const char SERVER_DISCONNECT[] = "server disconnected!!!!";
+const char NAME_ACCEPTED[] = "name accepted!!! yupee!!!";
+const char NAME_REJECTED[] = "name rejected! :( damn!!!!";
 
-const int AUTHOR_SERVER = -666;
+const char AUTHOR_SERVER[] = "-666";
 
 const int MAX_MESSAGE_LENGTH = 300;
+const int MAX_AUTHOR_LENGTH = 12;
 
 char IP[20] = "127.0.0.1"; // defaults
 int port = 30000;
@@ -47,10 +50,12 @@ struct FancyError {
 struct Message {
     MessageType type;
     char content[MAX_MESSAGE_LENGTH];
-    int author;
-    Message(MessageType t = MessageType::System, const char *c = "", int a = -1) : type(t), author(a) { 
+    char author[MAX_AUTHOR_LENGTH];
+    Message(MessageType t = MessageType::System, const char *c = "", const char *a = "") : type(t) { 
         strncpy(content, c, MAX_MESSAGE_LENGTH - 1);
         content[MAX_MESSAGE_LENGTH - 1] = '\0';
+        strncpy(author, a, MAX_AUTHOR_LENGTH);
+        author[MAX_AUTHOR_LENGTH - 1] = '\0'; // nullterminate my ass
     }
 };
 

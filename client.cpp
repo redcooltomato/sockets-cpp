@@ -21,6 +21,8 @@ const int MESSAGE_CHECK_DELAY_MS = 250;
 
 bool client_active = true;
 
+bool got_named = false;
+
 
 auto handle_server(SOCKET clientSocket) -> void {
     u_long socket_is_non_blocking = true;
@@ -31,25 +33,42 @@ auto handle_server(SOCKET clientSocket) -> void {
     while (client_active && clientSocket != (unsigned long long)SOCKET_ERROR) {
         byte_count = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
 
-        if (byte_count == 0) print("fhbafwawf\n");
-
         if (byte_count > 0) {
-            if (received_msg.type == MessageType::System && strcmp(received_msg.content, SERVER_DISCONNECT) == 0) {
-                print("{}server disconnected{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
-                client_active = false;
+            if (received_msg.type == MessageType::System) {
+                if (strcmp(received_msg.content, SERVER_DISCONNECT) == 0) {
+                    print("{}server disconnected{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+                    client_active = false;
 
-                #ifdef DEV
-                print("server killed itself\n");
-                #endif
+                    #ifdef DEV
+                    print("server killed itself\n");
+                    #endif
 
-                break;
+                    break;
+                } else if (strcmp(received_msg.content, NAME_ACCEPTED) == 0) {
+                    print("{}your name was accepted!{}\n",
+                    ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+
+                    got_named = true;
+
+                    print("{}type your message, up to {} characters\nuse :dis to disconnect{}\n",
+                        ANSI_COLORS_GREEN, MAX_MESSAGE_LENGTH, ANSI_COLORS_DEFAULT);
+                } else if (strcmp(received_msg.content, NAME_REJECTED) == 0) {
+                    print("{}your name was rejected, try another one{}\n",
+                    ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+                } else {
+                    print("{}{}:{} {}\n", 
+                        (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE),
+                        (received_msg.type == MessageType::System ? string("server") : (string("user ") + received_msg.author)),
+                        ANSI_COLORS_DEFAULT,
+                        received_msg.content);
+                }
+            } else {
+                print("{}{}:{} {}\n", 
+                    (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE),
+                    (received_msg.type == MessageType::System ? string("server") : (string("user ") + received_msg.author)),
+                    ANSI_COLORS_DEFAULT,
+                    received_msg.content);
             }
-
-            print("{}{}:{} {}\n", 
-                (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE),
-                (received_msg.type == MessageType::System ? string("server") : (string("user ") + to_string(received_msg.author))),
-                ANSI_COLORS_DEFAULT,
-                received_msg.content);
         }
 
         this_thread::sleep_for(chrono::milliseconds(MESSAGE_CHECK_DELAY_MS));
@@ -81,8 +100,8 @@ int main() {
         } else {
             /* send_message(clientSocket, Message(MessageTypes::System, CLIENT_CONNECT)); */
 
-            print("{}type your message, up to {} characters\nuse :dis to disconnect{}\n",
-                ANSI_COLORS_GREEN, MAX_MESSAGE_LENGTH, ANSI_COLORS_DEFAULT);
+            print("{}give yourself a name, up to {} characters long{}\n",
+                ANSI_COLORS_GREEN, MAX_AUTHOR_LENGTH - 1, ANSI_COLORS_DEFAULT);
         }
     }
 
@@ -91,7 +110,11 @@ int main() {
     char msg[MAX_MESSAGE_LENGTH];
 
     while (client_active && clientSocket != (unsigned long long)SOCKET_ERROR) {
-        cin.getline(msg, MAX_MESSAGE_LENGTH);
+        if (!got_named) {
+            cin.getline(msg, MAX_AUTHOR_LENGTH);
+        } else {
+            cin.getline(msg, MAX_MESSAGE_LENGTH);
+        }
 
         if (strcmp(msg, ":disconnect") == 0 || strcmp(msg, ":dis") == 0 || !client_active) {
             break;
@@ -101,7 +124,7 @@ int main() {
         if (!res) {
             WSACleanup();
 
-            if (res.error().code == 10054) {
+            if (res.error().code == 10054) { // yupee arbitrary numbers
                 print("{}error occured when sending the message. server has likely disconnected.{}\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
             } else {
                 print("{}\n", res.error().text);

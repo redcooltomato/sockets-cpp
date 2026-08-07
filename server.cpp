@@ -10,6 +10,7 @@
 #include <expected>
 #include <string>
 #include <print>
+#include <unordered_map>
 
 #include "meta.cpp"
 
@@ -32,6 +33,8 @@ bool server_active = true;
 
 thread commands_thread;
 vector<clientConnection> clients;
+
+unordered_map<int, string> clientIDtoName;
 
 struct clientConnection {
     SOCKET socket;
@@ -64,14 +67,40 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
             }
 
             print("{}client {}: {}{}\n", 
-                (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), clientID,
+                (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), 
+                (clientIDtoName.find(clientID) != clientIDtoName.end() ? clientIDtoName[clientID] : to_string(clientID)),
                 ANSI_COLORS_DEFAULT, received_msg.content);
 
             if (received_msg.type == MessageType::User) {
-                received_msg.author = clientID;
-                for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
-                    if (client_ptr->clientID == clientID) continue;
-                    auto res = send_message(client_ptr->socket, received_msg);
+                if (clientIDtoName.find(clientID) == clientIDtoName.end()) {
+                    bool exists = false;
+                    for (auto [id, name] : clientIDtoName) {
+                        if (strcmp(received_msg.content, name.c_str()) == 0) {
+                            exists = true;
+                            break;
+                        }
+                    }
+
+                    if (!exists) {
+                        clientIDtoName[clientID] = received_msg.content;
+                    }
+
+                    auto res = send_message(clientSocket, Message(
+                        MessageType::System,
+                        (!exists ? NAME_ACCEPTED : NAME_REJECTED),
+                        AUTHOR_SERVER
+                    ));
+
+                    if (!res) {
+                        clientSocket = SOCKET_ERROR; // todo do smth with error
+                        break;
+                    }
+                } else {
+                    strncpy(received_msg.author, clientIDtoName[clientID].c_str(), MAX_AUTHOR_LENGTH - 1);
+                    for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
+                        if (client_ptr->clientID == clientID) continue;
+                        auto res = send_message(client_ptr->socket, received_msg);
+                    }
                 }
             }
             
@@ -99,6 +128,8 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
         print("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
         #endif
     }
+
+    clientIDtoName.erase(clientID);
 
     print("{}client with clientID {} disconnected{}\n",
         ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
@@ -170,7 +201,11 @@ int main() {
         acceptSocket = accept(serverSocket, NULL, NULL);
 
         if (acceptSocket != (unsigned long long)SOCKET_ERROR) {
-            clients.push_back(clientConnection(acceptSocket, clients.size(), thread(handle_client, acceptSocket, clients.size())));
+            clients.push_back(clientConnection(
+                acceptSocket, 
+                clients.size(), 
+                thread(handle_client, acceptSocket, clients.size())
+            ));
         }
     }
     
@@ -207,7 +242,9 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, FancyError> {
         int err = WSAGetLastError();
         closesocket(serverSocket);
         WSACleanup();
-        return unexpected(FancyError(string(ANSI_COLORS_RED) + "bind failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err));
+        return unexpected(FancyError(
+            string(ANSI_COLORS_RED) + "bind failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err
+        ));
     } else {
         #ifdef DEV
         cout << "bind is ok!" << endl;
@@ -217,7 +254,9 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, FancyError> {
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
         int err = WSAGetLastError();
         WSACleanup();
-        return unexpected(FancyError(string(ANSI_COLORS_RED) + "listen failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err));
+        return unexpected(FancyError(
+            string(ANSI_COLORS_RED) + "listen failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err
+        ));
     } else {
         print("listening with big rabit ears\n");
     }
