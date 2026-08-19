@@ -125,7 +125,8 @@ int main() {
             WSACleanup();
 
             if (res.error().code == 10054) { // yupee arbitrary numbers
-                print("{}error occured when sending the message. server has likely disconnected.{}\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
+                print("{}error occured when sending the message. server has likely disconnected.{}\n",
+                    ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
             } else {
                 print("{}\n", res.error().text);
             }

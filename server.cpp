@@ -32,7 +32,8 @@ const int CLIENT_WAIT_TIME_S = 180;
 bool server_active = true;
 
 thread commands_thread;
-vector<clientConnection> clients;
+unordered_map<int, clientConnection> clients;
+int lucid = 0; // least unused client id
 
 unordered_map<int, string> clientIDtoName;
 
@@ -97,9 +98,9 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
                     }
                 } else {
                     strncpy(received_msg.author, clientIDtoName[clientID].c_str(), MAX_AUTHOR_LENGTH - 1);
-                    for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
-                        if (client_ptr->clientID == clientID) continue;
-                        auto res = send_message(client_ptr->socket, received_msg);
+                    for (auto& [lcID, lclient] : clients) {
+                        if (lcID == clientID) continue;
+                        auto res = send_message(lclient.socket, received_msg);
                     }
                 }
             }
@@ -130,6 +131,7 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     }
 
     clientIDtoName.erase(clientID);
+    clients.erase(clientID);
 
     print("{}client with clientID {} disconnected{}\n",
         ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
@@ -151,8 +153,8 @@ auto handle_server_commands() {
             if (input.length() > 12) {
                 Message msg(MessageType::System, input.substr(11, 200).c_str(), AUTHOR_SERVER);
 
-                for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
-                    auto res = send_message(client_ptr->socket, msg);
+                for (auto& [cID, client] : clients) {
+                    auto res = send_message(client.socket, msg);
                 }
             }
         } else {
@@ -201,11 +203,13 @@ int main() {
         acceptSocket = accept(serverSocket, NULL, NULL);
 
         if (acceptSocket != (unsigned long long)SOCKET_ERROR) {
-            clients.push_back(clientConnection(
+            clients.emplace(lucid, clientConnection(
                 acceptSocket, 
-                clients.size(), 
+                lucid, 
                 thread(handle_client, acceptSocket, clients.size())
             ));
+
+            lucid++;
         }
     }
     
@@ -215,8 +219,8 @@ int main() {
 
     commands_thread.join();
 
-    for (auto client_ptr = clients.begin(); client_ptr != clients.end(); client_ptr++) {
-        client_ptr->thr.join();
+    for (auto& [cID, client] : clients) {
+        client.thr.join();
     }
 
     print("{}closing socket & server{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
