@@ -131,7 +131,6 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     }
 
     clientIDtoName.erase(clientID);
-    clients.erase(clientID);
 
     print("{}client with clientID {} disconnected{}\n",
         ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
