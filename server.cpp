@@ -1,6 +1,3 @@
-#include <winsock2.h>
-#include <windows.h>
-#include <ws2tcpip.h>
 #include <signal.h>
 
 #include <iostream>
@@ -47,15 +44,14 @@ struct clientConnection {
 
 
 auto handle_client(SOCKET clientSocket, int clientID) -> void {
-    print("{}client with clientID {} connected!{}\n",
+    std::print("{}client with clientID {} connected!{}\n",
         ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 
     Message received_msg;
     int byteCount = 0;
     auto time_since_last_msg = chrono::steady_clock::now();
 
-    u_long socket_is_non_blocking = true;
-    ioctlsocket(clientSocket, FIONBIO, &socket_is_non_blocking);
+    set_socket_blocking(clientSocket, false);
     
     while (clientSocket != (unsigned long long)SOCKET_ERROR && server_active) {
         byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
@@ -67,7 +63,7 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
                 break;
             }
 
-            print("{}client {}: {}{}\n", 
+            std::print("{}client {}: {}{}\n", 
                 (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), 
                 (clientIDtoName.find(clientID) != clientIDtoName.end() ? clientIDtoName[clientID] : to_string(clientID)),
                 ANSI_COLORS_DEFAULT, received_msg.content);
@@ -117,7 +113,7 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
     }
 
     if (clientSocket != (unsigned long long)SOCKET_ERROR) {
-        socket_is_non_blocking = false;
+        set_socket_blocking(clientSocket, false);
 
         expected<Unit, FancyError> discard = send_message(clientSocket, Message(
             MessageType::System,
@@ -126,13 +122,13 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
         ));
 
         #ifdef DEV
-        print("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
+        std::print("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
         #endif
     }
 
     clientIDtoName.erase(clientID);
 
-    print("{}client with clientID {} disconnected{}\n",
+    std::print("{}client with clientID {} disconnected{}\n",
         ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 }
 
@@ -144,7 +140,7 @@ auto handle_server_commands() {
 
         if (input == ":close" || input == ":c") {
             server_active = false;
-            print("{}shutting down & joining threads...{}\n",
+            std::print("{}shutting down & joining threads...{}\n",
                 ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
 
             break;
@@ -157,7 +153,7 @@ auto handle_server_commands() {
                 }
             }
         } else {
-            print("{}unknown command{}\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
+            std::print("{}unknown command{}\n", ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
         }
     }
 }
@@ -173,7 +169,7 @@ int main() {
         if (res) {
             serverSocket = res.value();
         } else {
-            print("{}\n", res.error().text);
+            std::print("{}\n", res.error().text);
             return 1;
         }
     }
@@ -181,18 +177,17 @@ int main() {
     {
         expected<Unit, FancyError> res = bind_and_listen(serverSocket);
         if (!res) {
-            print("{}\n", res.error().text);
+            std::print("{}\n", res.error().text);
             return 1;
         }
     }
 
-    print("{}== server started =={}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
-    print("{}commands: :close, :broadcast [message]{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    std::print("{}== server started =={}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    std::print("{}commands: :close, :broadcast [message]{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
 
     commands_thread = thread(handle_server_commands);
 
-    u_long socket_is_non_blocking = true;
-    ioctlsocket(serverSocket, FIONBIO, &socket_is_non_blocking);
+    set_socket_blocking(serverSocket, false);
 
     signal(SIGINT, handle_sigint_cleanup);
 
@@ -222,7 +217,7 @@ int main() {
         client.thr.join();
     }
 
-    print("{}closing socket & server{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
+    std::print("{}closing socket & server{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
     closesocket(serverSocket);
     WSACleanup();
 }
@@ -231,7 +226,7 @@ int main() {
 
 // todo: remove
 auto handle_sigint_cleanup(int sig) -> void {
-    print("{}ctrl-c :({}\n",
+    std::print("{}ctrl-c :({}\n",
         ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
     server_active = false;
 }
@@ -239,10 +234,10 @@ auto handle_sigint_cleanup(int sig) -> void {
 auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, FancyError> {
     sockaddr_in service;
     service.sin_family = AF_INET;
-    InetPtonA(AF_INET, IP, &service.sin_addr.s_addr);
+    inet_pton(AF_INET, IP, &service.sin_addr.s_addr);
     service.sin_port = htons(port);
-    if (bind(serverSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR) {
-        int err = WSAGetLastError();
+    if (bind(serverSocket, (sockaddr*)&service, sizeof(service)) == SOCKET_ERROR) {
+        int err = getlasterror();
         closesocket(serverSocket);
         WSACleanup();
         return unexpected(FancyError(
@@ -255,13 +250,13 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, FancyError> {
     }
 
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
-        int err = WSAGetLastError();
+        int err = getlasterror();
         WSACleanup();
         return unexpected(FancyError(
             string(ANSI_COLORS_RED) + "listen failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err
         ));
     } else {
-        print("listening with big rabit ears\n");
+        std::print("listening with big rabit ears\n");
     }
 
     return Unit();

@@ -1,8 +1,4 @@
-#pragma once
-
-#include <winsock2.h>
-#include <windows.h>
-#include <ws2tcpip.h>
+#include "compatability.cpp"
 
 #include <iostream>
 #include <expected>
@@ -61,6 +57,7 @@ struct Message {
 
 
 auto init_wsa_and_get_socket() -> std::expected<SOCKET, FancyError> {
+    #ifdef WIN
     WSADATA wsaData;
     int wsaerr;
     WORD wVersion = MAKEWORD(2, 2);
@@ -72,11 +69,12 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, FancyError> {
         std::print("win sock dll found\n");
         #endif
     }
+    #endif
 
     SOCKET newSocket = INVALID_SOCKET;
     newSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (newSocket == INVALID_SOCKET) {
-        int err = WSAGetLastError();
+    if (newSocket == (long long unsigned int)INVALID_SOCKET) {
+        int err = getlasterror();
         WSACleanup();
         return std::unexpected(FancyError(std::string(ANSI_COLORS_RED) + "error at socket: " + std::to_string(err) + ANSI_COLORS_DEFAULT, err));
     } else {
@@ -91,7 +89,7 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, FancyError> {
 auto send_message(SOCKET socket, Message msg) -> std::expected<Unit, FancyError> {
     int byteCount = send(socket, (char*)&msg, sizeof(msg), 0);
     if (byteCount == SOCKET_ERROR) {
-        int err = WSAGetLastError();
+        int err = getlasterror();
         return std::unexpected(FancyError(std::string(ANSI_COLORS_RED) + "error occued when sending: " + std::to_string(err) + "\n" + ANSI_COLORS_DEFAULT, err));
     }
     return Unit();

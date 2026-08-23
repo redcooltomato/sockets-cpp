@@ -1,7 +1,3 @@
-#include <winsock2.h>
-#include <windows.h>
-#include <ws2tcpip.h>
-
 #include <iostream>
 #include <expected>
 #include <string>
@@ -25,8 +21,7 @@ bool got_named = false;
 
 
 auto handle_server(SOCKET clientSocket) -> void {
-    u_long socket_is_non_blocking = true;
-    ioctlsocket(clientSocket, FIONBIO, &socket_is_non_blocking);
+    set_socket_blocking(clientSocket, false);
 
     Message received_msg;
     int byte_count = 0;
@@ -158,10 +153,10 @@ int main() {
 auto connect_to_server(SOCKET clientSocket) -> expected<Unit, FancyError> {
     sockaddr_in clientService;
     clientService.sin_family = AF_INET;
-    InetPtonA(AF_INET, IP, &clientService.sin_addr.s_addr);
+    inet_pton(AF_INET, IP, &clientService.sin_addr.s_addr);
     clientService.sin_port = htons(port);
-    if (connect(clientSocket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
-        int err = WSAGetLastError();
+    if (connect(clientSocket, (sockaddr*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
+        int err = getlasterror();
         WSACleanup();
         return unexpected(FancyError(string(ANSI_COLORS_RED) + "client connect failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err));
     } else {
