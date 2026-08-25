@@ -64,10 +64,21 @@ auto handle_server(SOCKET clientSocket) -> void {
                     ANSI_COLORS_DEFAULT,
                     received_msg.content);
             }
-        }
+        } /* else if (byte_count == SOCKET_ERROR) {
+            int err = getlasterror();
+            WSACleanup();
+            print("{}\n", string(ANSI_COLORS_RED) + "failed to listen to server. this is fatal\n: " + to_string(err) + ANSI_COLORS_DEFAULT, err);
+            client_active = false;
+
+            break;
+        } */
 
         this_thread::sleep_for(chrono::milliseconds(MESSAGE_CHECK_DELAY_MS));
     }
+
+    #ifdef DEV
+    print("stopped listetning to server\n");
+    #endif
 }
 
 

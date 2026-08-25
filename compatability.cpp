@@ -44,15 +44,10 @@ auto getlasterror() -> int {
 auto set_socket_blocking(SOCKET socket, bool blocking) -> int {
     #ifdef WIN
     static std::unordered_map<SOCKET, unsigned long> sock_to_par;
-    if (sock_to_par.find(socket) == sock_to_par.end()) {
-        sock_to_par[socket] = blocking;
-        #ifdef WIN
-        return ioctlsocket(socket, FIONBIO, &sock_to_par[socket]);
-        #endif
-    } else {
-        sock_to_par[socket] = blocking;
-        return 0;
-    }
+
+    sock_to_par[socket] = !blocking;
+
+    return ioctlsocket(socket, FIONBIO, &sock_to_par[socket]);
     #else
     int flags = fcntl(socket, F_GETFL);
 
