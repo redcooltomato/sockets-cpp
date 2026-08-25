@@ -34,35 +34,33 @@ int closesocket(SOCKET socket) { return close(socket); }
 #endif
 
 auto getlasterror() -> int {
-    if (kernel == ::Windows) {
-        #ifdef WIN // so linter wont yap
-        return WSAGetLastError();
-        #endif
-    }
-    else {
-        return errno;
-    }
+    #ifdef WIN // so linter wont yap
+    return WSAGetLastError();
+    #else
+    return errno;
+    #endif
 }
 
 auto set_socket_blocking(SOCKET socket, bool blocking) -> int {
-    if (kernel == ::Windows) {
-        static std::unordered_map<SOCKET, unsigned long> sock_to_par;
-        if (sock_to_par.find(socket) == sock_to_par.end()) {
-            sock_to_par[socket] = blocking;
-            #ifdef WIN
-            ioctlsocket(socket, FIONBIO, &blocking);
-            #endif
-        } else {
-            sock_to_par[socket] = blocking;
-        }
+    #ifdef WIN
+    static std::unordered_map<SOCKET, unsigned long> sock_to_par;
+    if (sock_to_par.find(socket) == sock_to_par.end()) {
+        sock_to_par[socket] = blocking;
+        #ifdef WIN
+        return ioctlsocket(socket, FIONBIO, &sock_to_par[socket]);
+        #endif
     } else {
-        int flags = fcntl(socket, F_GETFL);
-
-        if (blocking)
-            flags &= ~O_NONBLOCK;
-        else
-            flags |= ~O_NONBLOCK;
-        
-        return fcntl(socket, F_SETFL, flags);
+        sock_to_par[socket] = blocking;
+        return 0;
     }
+    #else
+    int flags = fcntl(socket, F_GETFL);
+
+    if (blocking)
+        flags &= ~O_NONBLOCK;
+    else
+        flags |= ~O_NONBLOCK;
+    
+    return fcntl(socket, F_SETFL, flags);
+    #endif
 }
