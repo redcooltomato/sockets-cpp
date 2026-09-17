@@ -19,7 +19,7 @@ auto handle_sigint_cleanup(int sig) -> void;
 
 auto handle_client(SOCKET clientSocket, int sessionID) -> void;
 
-using namespace std;
+using std::string, std::to_string, std::thread, std::expected, std::unexpected;
 
 
 const int CONNECTION_QUEUE_SIZE = 5; // whatever this is for
@@ -29,10 +29,10 @@ const int CLIENT_WAIT_TIME_S = 180;
 bool server_active = true;
 
 thread commands_thread;
-unordered_map<int, clientConnection> clients;
+std::unordered_map<int, clientConnection> clients;
 int lucid = 0; // least unused client id
 
-unordered_map<int, string> clientIDtoName;
+std::unordered_map<int, string> clientIDtoName;
 
 struct clientConnection {
     SOCKET socket;
@@ -49,7 +49,7 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
 
     Message received_msg;
     int byteCount = 0;
-    auto time_since_last_msg = chrono::steady_clock::now();
+    auto time_since_last_msg = std::chrono::steady_clock::now();
 
     set_socket_blocking(clientSocket, false);
     
@@ -101,15 +101,15 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
                 }
             }
             
-            time_since_last_msg = chrono::steady_clock::now();
+            time_since_last_msg = std::chrono::steady_clock::now();
         }
 
-        if (chrono::duration_cast<chrono::seconds>(chrono::steady_clock::now() - time_since_last_msg)
-             > chrono::seconds(CLIENT_WAIT_TIME_S)) {
+        if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - time_since_last_msg)
+             > std::chrono::seconds(CLIENT_WAIT_TIME_S)) {
             break;
         }
 
-        this_thread::sleep_for(chrono::milliseconds(CLIENT_MESSAGE_CHECK_DELAY_MS));
+        std::this_thread::sleep_for(std::chrono::milliseconds(CLIENT_MESSAGE_CHECK_DELAY_MS));
     }
 
     if (clientSocket != (unsigned long long)SOCKET_ERROR) {
@@ -136,7 +136,7 @@ auto handle_server_commands() {
     string input;
     
     while (server_active) {
-        getline(cin, input);
+        getline(std::cin, input);
 
         if (input == ":close" || input == ":c") {
             server_active = false;
