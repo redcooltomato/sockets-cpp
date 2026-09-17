@@ -54,7 +54,7 @@ auto set_socket_blocking(SOCKET socket, bool blocking) -> int {
     if (blocking)
         flags &= ~O_NONBLOCK;
     else
-        flags |= ~O_NONBLOCK;
+        flags |= O_NONBLOCK;
     
     return fcntl(socket, F_SETFL, flags);
     #endif
