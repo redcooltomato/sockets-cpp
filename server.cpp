@@ -245,7 +245,7 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, FancyError> {
         ));
     } else {
         #ifdef DEV
-        cout << "bind is ok!" << endl;
+        std::cout << "bind is ok!" << std::endl;
         #endif
     }
 

@@ -2,17 +2,18 @@
 
 #include <unordered_map> // for socket block switching on win
 
-enum KernelType {
-    Windows,
-    Unix
-};
+// so compiler linter doesnt yap,
+// you actually have to link wsapi for code to work
+#ifdef _WIN32 
+#ifndef WIN
+#define WIN
+#endif
+#endif
 
 #ifdef WIN
 #include <winsock2.h>
 #include <windows.h>
 #include <ws2tcpip.h>
-
-const KernelType kernel = ::Windows;
 
 #else
 #include <netinet/in.h>
@@ -21,8 +22,6 @@ const KernelType kernel = ::Windows;
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-
-const KernelType kernel = ::Unix;
 
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
