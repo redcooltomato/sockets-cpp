@@ -21,6 +21,12 @@ auto handle_sigint_cleanup(int sig) -> void;
 
 auto handle_client(SOCKET clientSocket, int sessionID) -> void;
 
+auto name_user(SOCKET connectedSocket, int clientID, Message receivedMsg) -> std::expected<Unit, FancyError>;
+
+auto forward_to_all(int clientID, Message receivedMsg) -> void;
+
+auto disconnect_client(SOCKET connectedSocket, int clientID) -> void;
+
 
 const int CONNECTION_QUEUE_SIZE = 5; // whatever this is for
 const int CLIENT_MESSAGE_CHECK_DELAY_MS = 250;
@@ -47,16 +53,16 @@ auto handle_client(SOCKET connectedSocket, int clientID) -> void {
         ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 
     Message receivedMsg;
-    int byteCount = 0;
+    int msgByteCount = 0;
     auto timeSinceLastMsg = std::chrono::steady_clock::now();
 
     set_socket_blocking(connectedSocket, false);
     
     while (connectedSocket != (unsigned long long)SOCKET_ERROR && serverActive) {
-        byteCount = recv(connectedSocket, (char*)&receivedMsg, sizeof(Message), 0);
+        msgByteCount = recv(connectedSocket, (char*)&receivedMsg, sizeof(Message), 0);
 
-        if (byteCount > 0) {
-            if (receivedMsg.type == MessageType::System && strcmp(receivedMsg.content, CLIENT_DISCONNECT) == 0) {
+        if (msgByteCount > 0) {
+            if (receivedMsg.type == MessageType::System && !strcmp(receivedMsg.content, CLIENT_DISCONNECT)) {
                 connectedSocket = (unsigned long long)SOCKET_ERROR;
                 
                 break;
@@ -68,35 +74,12 @@ auto handle_client(SOCKET connectedSocket, int clientID) -> void {
                 ANSI_COLORS_DEFAULT, receivedMsg.content);
 
             if (receivedMsg.type == MessageType::User) {
-                if (clientIDtoName.find(clientID) == clientIDtoName.end()) {
-                    bool exists = false;
-                    for (auto [id, name] : clientIDtoName) {
-                        if (strcmp(receivedMsg.content, name.c_str()) == 0) {
-                            exists = true;
-                            break;
-                        }
-                    }
-
-                    if (!exists) {
-                        clientIDtoName[clientID] = receivedMsg.content;
-                    }
-
-                    auto res = send_message(connectedSocket, Message(
-                        MessageType::System,
-                        (!exists ? NAME_ACCEPTED : NAME_REJECTED),
-                        AUTHOR_SERVER
-                    ));
-
-                    if (!res) {
-                        connectedSocket = SOCKET_ERROR; // todo do smth with error
+                if (!clientIDtoName.contains(clientID)) {
+                    if (!name_user(connectedSocket, clientID, receivedMsg)) {
                         break;
                     }
                 } else {
-                    strncpy(receivedMsg.author, clientIDtoName[clientID].c_str(), MAX_AUTHOR_LENGTH - 1);
-                    for (auto& [lcID, lclient] : clients) {
-                        if (lcID == clientID) continue;
-                        auto res = send_message(lclient.socket, receivedMsg);
-                    }
+                    forward_to_all(clientID, receivedMsg);
                 }
             }
             
@@ -111,22 +94,7 @@ auto handle_client(SOCKET connectedSocket, int clientID) -> void {
         std::this_thread::sleep_for(std::chrono::milliseconds(CLIENT_MESSAGE_CHECK_DELAY_MS));
     }
 
-    if (connectedSocket != (unsigned long long)SOCKET_ERROR) {
-        set_socket_blocking(connectedSocket, false);
-
-        expected<Unit, FancyError> discard = send_message(connectedSocket, Message(
-            MessageType::System,
-            SERVER_DISCONNECT,
-            AUTHOR_SERVER
-        ));
-
-        print_dev("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
-    }
-
-    clientIDtoName.erase(clientID);
-
-    std::print("{}client with clientID {} disconnected{}\n",
-        ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
+    disconnect_client(connectedSocket, clientID);
 }
 
 auto handle_server_commands() {
@@ -255,4 +223,53 @@ auto bind_and_listen(SOCKET serverSocket, ConnectionConfig cfg) -> expected<Unit
     }
 
     return Unit();
+}
+
+auto name_user(SOCKET connectedSocket, int clientID, Message receivedMsg) -> std::expected<Unit, FancyError> {
+    bool exists = false;
+
+    for (auto [id, name] : clientIDtoName) {
+        if (strcmp(receivedMsg.content, name.c_str()) == 0) {
+            exists = true;
+            break;
+        }
+    }
+
+    if (!exists) {
+        clientIDtoName[clientID] = receivedMsg.content;
+    }
+
+    return send_message(connectedSocket, Message(
+        MessageType::System,
+        (!exists ? NAME_ACCEPTED : NAME_REJECTED),
+        AUTHOR_SERVER
+    ));
+}
+
+auto forward_to_all(int clientID, Message receivedMsg) -> void {
+    strncpy(receivedMsg.author, clientIDtoName[clientID].c_str(), MAX_AUTHOR_LENGTH - 1);
+        
+    for (auto& [lcID, lclient] : clients) {
+        if (lcID == clientID) continue;
+        auto res = send_message(lclient.socket, receivedMsg);
+    }
+}
+
+auto disconnect_client(SOCKET connectedSocket, int clientID) -> void {
+    if (connectedSocket != (unsigned long long)SOCKET_ERROR) {
+        set_socket_blocking(connectedSocket, false);
+
+        expected<Unit, FancyError> discard = send_message(connectedSocket, Message(
+            MessageType::System,
+            SERVER_DISCONNECT,
+            AUTHOR_SERVER
+        ));
+
+        print_dev("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
+    }
+
+    clientIDtoName.erase(clientID);
+
+    std::print("{}client with clientID {} disconnected{}\n",
+        ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 }
