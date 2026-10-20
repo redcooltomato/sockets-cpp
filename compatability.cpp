@@ -3,7 +3,7 @@
 #include <unordered_map> // for socket block switching on win
 
 // so compiler linter doesnt yap,
-// you actually have to link wsapi for code to work
+// you actually have to link wsapi for the program to compile
 #ifdef _WIN32 
 #ifndef WIN
 #define WIN
@@ -32,7 +32,7 @@ void WSACleanup() {}
 int closesocket(SOCKET socket) { return close(socket); }
 #endif
 
-auto getlasterror() -> int {
+auto get_last_error() -> int {
     #ifdef WIN // so linter wont yap
     return WSAGetLastError();
     #else

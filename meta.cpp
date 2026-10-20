@@ -23,15 +23,21 @@ const char NAME_REJECTED[] = "name rejected! :( damn!!!!";
 
 const char AUTHOR_SERVER[] = "-666";
 
-const int MAX_MESSAGE_LENGTH = 300;
-const int MAX_AUTHOR_LENGTH = 12;
-
-char IP[20] = "127.0.0.1"; // defaults
-int port = 30000;
+const size_t MAX_MESSAGE_LENGTH = 300;
+const size_t MAX_AUTHOR_LENGTH = 12;
 
 
 struct Unit { // like the one in rust
     Unit() {}
+};
+
+struct ConnectionConfig {
+    char ip[15];
+    unsigned int port;
+
+    ConnectionConfig(const char* ip = "127.0.0.1", unsigned int port = 30000) : port(port) {
+        std::strncpy(this->ip, ip, 15);
+    }
 };
 
 enum MessageType {
@@ -76,7 +82,7 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, FancyError> {
     SOCKET newSocket = INVALID_SOCKET;
     newSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (newSocket == (long long unsigned int)INVALID_SOCKET) {
-        int err = getlasterror();
+        int err = get_last_error();
         WSACleanup();
         return std::unexpected(FancyError(std::string(ANSI_COLORS_RED) + "error at socket: " + std::to_string(err) + ANSI_COLORS_DEFAULT, err));
     } else {
@@ -91,23 +97,31 @@ auto init_wsa_and_get_socket() -> std::expected<SOCKET, FancyError> {
 auto send_message(SOCKET socket, Message msg) -> std::expected<Unit, FancyError> {
     int byteCount = send(socket, (char*)&msg, sizeof(msg), 0);
     if (byteCount == SOCKET_ERROR) {
-        int err = getlasterror();
+        int err = get_last_error();
         return std::unexpected(FancyError(std::string(ANSI_COLORS_RED) + "error occued when sending: " + std::to_string(err) + "\n" + ANSI_COLORS_DEFAULT, err));
     }
     return Unit();
 }
 
-auto get_ip_port() -> void {
+auto get_ip_port() -> ConnectionConfig {
+    #ifdef DEV // so you dont have to type out localhost and random socket each time
+    return ConnectionConfig();
+    #endif
+
+    ConnectionConfig result;
+
     std::print("enter ip:\n");
-    std::cin >> IP;
+    std::cin >> result.ip;
 
     std::print("enter port:\n");
     do {
-        std::cin >> port;
-        if (port <= 1024) {
+        std::cin >> result.port;
+        if (result.port <= 1024) {
             std::print("port must be >1024 to avoid conflicts\n");
         }
-    } while (port <= 1024);
+    } while (result.port <= 1024);
 
     std::cin.ignore(256, '\n');
+
+    return result;
 }

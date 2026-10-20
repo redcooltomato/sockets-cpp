@@ -11,26 +11,25 @@
 
 #include "meta.cpp"
 
+using std::string, std::to_string, std::thread, std::expected, std::unexpected;
+
 struct clientConnection;
 
-auto bind_and_listen(SOCKET serverSocket) -> std::expected<Unit, FancyError>;
+auto bind_and_listen(SOCKET serverSocket, ConnectionConfig cfg) -> std::expected<Unit, FancyError>;
 
 auto handle_sigint_cleanup(int sig) -> void;
 
 auto handle_client(SOCKET clientSocket, int sessionID) -> void;
-
-using std::string, std::to_string, std::thread, std::expected, std::unexpected;
 
 
 const int CONNECTION_QUEUE_SIZE = 5; // whatever this is for
 const int CLIENT_MESSAGE_CHECK_DELAY_MS = 250;
 const int CLIENT_WAIT_TIME_S = 180;
 
-bool server_active = true;
+bool serverActive = true;
 
 thread commands_thread;
 std::unordered_map<int, clientConnection> clients;
-int lucid = 0; // least unused client id
 
 std::unordered_map<int, string> clientIDtoName;
 
@@ -43,68 +42,68 @@ struct clientConnection {
 };
 
 
-auto handle_client(SOCKET clientSocket, int clientID) -> void {
+auto handle_client(SOCKET connectedSocket, int clientID) -> void {
     std::print("{}client with clientID {} connected!{}\n",
         ANSI_COLORS_CYAN, clientID, ANSI_COLORS_DEFAULT);
 
-    Message received_msg;
+    Message receivedMsg;
     int byteCount = 0;
-    auto time_since_last_msg = std::chrono::steady_clock::now();
+    auto timeSinceLastMsg = std::chrono::steady_clock::now();
 
-    set_socket_blocking(clientSocket, false);
+    set_socket_blocking(connectedSocket, false);
     
-    while (clientSocket != (unsigned long long)SOCKET_ERROR && server_active) {
-        byteCount = recv(clientSocket, (char*)&received_msg, sizeof(Message), 0);
+    while (connectedSocket != (unsigned long long)SOCKET_ERROR && serverActive) {
+        byteCount = recv(connectedSocket, (char*)&receivedMsg, sizeof(Message), 0);
 
         if (byteCount > 0) {
-            if (received_msg.type == MessageType::System && strcmp(received_msg.content, CLIENT_DISCONNECT) == 0) {
-                clientSocket = (unsigned long long)SOCKET_ERROR;
+            if (receivedMsg.type == MessageType::System && strcmp(receivedMsg.content, CLIENT_DISCONNECT) == 0) {
+                connectedSocket = (unsigned long long)SOCKET_ERROR;
                 
                 break;
             }
 
             std::print("{}client {}: {}{}\n", 
-                (received_msg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), 
+                (receivedMsg.type == MessageType::System ? ANSI_COLORS_GREEN : ANSI_COLORS_BLUE), 
                 (clientIDtoName.find(clientID) != clientIDtoName.end() ? clientIDtoName[clientID] : to_string(clientID)),
-                ANSI_COLORS_DEFAULT, received_msg.content);
+                ANSI_COLORS_DEFAULT, receivedMsg.content);
 
-            if (received_msg.type == MessageType::User) {
+            if (receivedMsg.type == MessageType::User) {
                 if (clientIDtoName.find(clientID) == clientIDtoName.end()) {
                     bool exists = false;
                     for (auto [id, name] : clientIDtoName) {
-                        if (strcmp(received_msg.content, name.c_str()) == 0) {
+                        if (strcmp(receivedMsg.content, name.c_str()) == 0) {
                             exists = true;
                             break;
                         }
                     }
 
                     if (!exists) {
-                        clientIDtoName[clientID] = received_msg.content;
+                        clientIDtoName[clientID] = receivedMsg.content;
                     }
 
-                    auto res = send_message(clientSocket, Message(
+                    auto res = send_message(connectedSocket, Message(
                         MessageType::System,
                         (!exists ? NAME_ACCEPTED : NAME_REJECTED),
                         AUTHOR_SERVER
                     ));
 
                     if (!res) {
-                        clientSocket = SOCKET_ERROR; // todo do smth with error
+                        connectedSocket = SOCKET_ERROR; // todo do smth with error
                         break;
                     }
                 } else {
-                    strncpy(received_msg.author, clientIDtoName[clientID].c_str(), MAX_AUTHOR_LENGTH - 1);
+                    strncpy(receivedMsg.author, clientIDtoName[clientID].c_str(), MAX_AUTHOR_LENGTH - 1);
                     for (auto& [lcID, lclient] : clients) {
                         if (lcID == clientID) continue;
-                        auto res = send_message(lclient.socket, received_msg);
+                        auto res = send_message(lclient.socket, receivedMsg);
                     }
                 }
             }
             
-            time_since_last_msg = std::chrono::steady_clock::now();
+            timeSinceLastMsg = std::chrono::steady_clock::now();
         }
 
-        if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - time_since_last_msg)
+        if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - timeSinceLastMsg)
              > std::chrono::seconds(CLIENT_WAIT_TIME_S)) {
             break;
         }
@@ -112,10 +111,10 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
         std::this_thread::sleep_for(std::chrono::milliseconds(CLIENT_MESSAGE_CHECK_DELAY_MS));
     }
 
-    if (clientSocket != (unsigned long long)SOCKET_ERROR) {
-        set_socket_blocking(clientSocket, false);
+    if (connectedSocket != (unsigned long long)SOCKET_ERROR) {
+        set_socket_blocking(connectedSocket, false);
 
-        expected<Unit, FancyError> discard = send_message(clientSocket, Message(
+        expected<Unit, FancyError> discard = send_message(connectedSocket, Message(
             MessageType::System,
             SERVER_DISCONNECT,
             AUTHOR_SERVER
@@ -135,11 +134,11 @@ auto handle_client(SOCKET clientSocket, int clientID) -> void {
 auto handle_server_commands() {
     string input;
     
-    while (server_active) {
+    while (serverActive) {
         getline(std::cin, input);
 
         if (input == ":close" || input == ":c") {
-            server_active = false;
+            serverActive = false;
             std::print("{}shutting down & joining threads...{}\n",
                 ANSI_COLORS_CYAN, ANSI_COLORS_DEFAULT);
 
@@ -159,9 +158,7 @@ auto handle_server_commands() {
 }
 
 int main() {
-    #ifndef DEV
-    get_ip_port();
-    #endif
+    ConnectionConfig connectionCfg = get_ip_port();
 
     SOCKET serverSocket;
     {
@@ -175,7 +172,7 @@ int main() {
     }
 
     {
-        expected<Unit, FancyError> res = bind_and_listen(serverSocket);
+        expected<Unit, FancyError> res = bind_and_listen(serverSocket, connectionCfg);
         if (!res) {
             std::print("{}\n", res.error().text);
             return 1;
@@ -193,21 +190,23 @@ int main() {
 
     SOCKET acceptSocket;
 
-    while (server_active) {
+    unsigned int leastUnusedClientId = 0;
+
+    while (serverActive) {
         acceptSocket = accept(serverSocket, NULL, NULL);
 
         if (acceptSocket != (unsigned long long)SOCKET_ERROR) {
-            clients.emplace(lucid, clientConnection(
+            clients.emplace(leastUnusedClientId, clientConnection(
                 acceptSocket, 
-                lucid, 
+                leastUnusedClientId, 
                 thread(handle_client, acceptSocket, clients.size())
             ));
 
-            lucid++;
+            leastUnusedClientId++;
         }
     }
     
-    /* if (acceptSocket == INVALID_SOCKET && server_active) {
+    /* if (acceptSocket == INVALID_SOCKET && serverActive) {
         cout << ANSI_COLORS_RED << "accept failed: " << WSAGetLastError() << ANSI_COLORS_DEFAULT << endl;
     } */
 
@@ -228,16 +227,16 @@ int main() {
 auto handle_sigint_cleanup(int sig) -> void {
     std::print("{}ctrl-c :({}\n",
         ANSI_COLORS_RED, ANSI_COLORS_DEFAULT);
-    server_active = false;
+    serverActive = false;
 }
 
-auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, FancyError> {
+auto bind_and_listen(SOCKET serverSocket, ConnectionConfig cfg) -> expected<Unit, FancyError> {
     sockaddr_in service;
     service.sin_family = AF_INET;
-    inet_pton(AF_INET, IP, &service.sin_addr.s_addr);
-    service.sin_port = htons(port);
+    inet_pton(AF_INET, cfg.ip, &service.sin_addr.s_addr);
+    service.sin_port = htons(cfg.port);
     if (bind(serverSocket, (sockaddr*)&service, sizeof(service)) == SOCKET_ERROR) {
-        int err = getlasterror();
+        int err = get_last_error();
         closesocket(serverSocket);
         WSACleanup();
         return unexpected(FancyError(
@@ -250,7 +249,7 @@ auto bind_and_listen(SOCKET serverSocket) -> expected<Unit, FancyError> {
     }
 
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
-        int err = getlasterror();
+        int err = get_last_error();
         WSACleanup();
         return unexpected(FancyError(
             string(ANSI_COLORS_RED) + "listen failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err
