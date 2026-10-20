@@ -36,9 +36,7 @@ auto handle_server(SOCKET connectedSocket) -> void {
                     std::print("{}server disconnected{}\n", ANSI_COLORS_GREEN, ANSI_COLORS_DEFAULT);
                     clientIsActive = false;
 
-                    #ifdef DEV
-                    std::print("server killed itself\n");
-                    #endif
+                    print_dev("server killed itself\n");
 
                     break;
                 } else if (strcmp(receivedMsg.content, NAME_ACCEPTED) == 0) {
@@ -78,9 +76,7 @@ auto handle_server(SOCKET connectedSocket) -> void {
         std::this_thread::sleep_for(std::chrono::milliseconds(MESSAGE_CHECK_DELAY_MS));
     }
 
-    #ifdef DEV
-    std::print("stopped listetning to server\nclient is active: {}, connection socket: {}\n", clientIsActive, connectedSocket);
-    #endif
+    print_dev("stopped listetning to server\nclient is active: {}, connection socket: {}\n", clientIsActive, connectedSocket);
 }
 
 

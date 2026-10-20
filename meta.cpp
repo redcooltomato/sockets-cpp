@@ -125,3 +125,10 @@ auto get_ip_port() -> ConnectionConfig {
 
     return result;
 }
+
+template<class... Args>
+void print_dev(std::format_string<Args...> fmt, Args&&... args) {
+    #ifdef DEV
+    std::print(fmt, std::forward<Args>(args)...);
+    #endif
+}

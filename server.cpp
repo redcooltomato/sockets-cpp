@@ -120,9 +120,7 @@ auto handle_client(SOCKET connectedSocket, int clientID) -> void {
             AUTHOR_SERVER
         ));
 
-        #ifdef DEV
-        std::print("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
-        #endif
+        print_dev("disconnected client {} manually, {}\n", clientID, (discard ? "successfuly" : "unsuccessfuly"));
     }
 
     clientIDtoName.erase(clientID);
@@ -243,9 +241,7 @@ auto bind_and_listen(SOCKET serverSocket, ConnectionConfig cfg) -> expected<Unit
             string(ANSI_COLORS_RED) + "bind failed: " + to_string(err) + ANSI_COLORS_DEFAULT, err
         ));
     } else {
-        #ifdef DEV
-        std::cout << "bind is ok!" << std::endl;
-        #endif
+        print_dev("bind is ok!\n");
     }
 
     if (listen(serverSocket, CONNECTION_QUEUE_SIZE) == SOCKET_ERROR) {
